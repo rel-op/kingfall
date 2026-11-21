@@ -35,3 +35,12 @@ ok bg_frost_battle 62s
 done
 ok logo 35s
 done
+ok fx_slash2 39s
+ok fx_burst 46s
+ok fx_shock 45s
+ok fx_thrust 45s
+ok fx_charge 47s
+ok fx_pillar 49s
+ok fx_puff 40s
+ok fx_land 43s
+done

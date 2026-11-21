@@ -41,25 +41,81 @@
     ctx.restore();
   };
 
-  // ---------- effects ----------
+  // ---------- effect sprites ----------
+  // Every effect is a keyed animation on assets/fx.png, drawn once per army colour.
+  BC.fxAnim = (name, tint) => { const e = (window.BC_FX || {})[name]; return e ? e[tint] || e[Object.keys(e)[0]] : null; };
+  // o: flip, flipY, alpha
+  BC.drawFx = function (ctx, name, tint, i, x, y, o) {
+    const fr = BC.fxAnim(name, tint), img = A.img.fx;
+    if (!fr || !img) return;
+    const f = fr[Math.max(0, Math.min(fr.length - 1, i | 0))];
+    if (!f[2]) return;
+    o = o || {};
+    const dev = Math.abs(ctx.getTransform().a);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.scale(o.flip ? -1 : 1, o.flipY ? -1 : 1);
+    ctx.imageSmoothingEnabled = !(dev >= 2.6 || Math.abs(dev - Math.round(dev)) < 0.03);
+    if (o.alpha !== undefined) ctx.globalAlpha = Math.max(0, Math.min(1, o.alpha));
+    ctx.drawImage(img, f[0], f[1], f[2], f[3], -f[4], -f[5], f[2], f[3]);
+    ctx.restore();
+  };
+
+  const pick = (v, table) => { for (const [max, name] of table) if (v <= max) return name; return table[table.length - 1][1]; };
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  // Spark sprites are drawn for three headings; the other five are mirrors. Indexed by octant.
+  const SPARK = [['h', 0, 0], ['d', 0, 0], ['v', 0, 0], ['d', 1, 0], ['h', 1, 0], ['d', 1, 1], ['v', 0, 1], ['d', 0, 1]];
+
   class Fx {
-    constructor() { this.parts = new BC.Parts(); this.items = []; this.texts = []; this.shards = []; this.ghosts = []; this.flashA = 0; this.flashCol = '#fff'; }
-    add(o) { o.age = 0; this.items.push(o); return o; }
-    arc(x, y, r, a0, a1, col, life, o) { return this.add(Object.assign({ k: 'arc', x, y, r, a0, a1, col, life: life || 0.2 }, o)); }
-    beam(x, y, w, col, life) { return this.add({ k: 'beam', x, y, w, col, life: life || 0.4 }); }
-    ring(x, y, r, col, life, flat) { return this.add({ k: 'ring', x, y, r, col, life: life || 0.4, flat: flat === undefined ? 0.36 : flat }); }
-    line(x0, y0, x1, y1, col, life, w) { return this.add({ k: 'line', x: x0, y: y0, x1, y1, col, life: life || 0.3, w: w || 5 }); }
-    star(x, y, r, col, life, n) { return this.add({ k: 'star', x, y, r, col, life: life || 0.4, n: n || 8 }); }
-    glow(x, y, r, col, life) { return this.add({ k: 'glow', x, y, r, col, life: life || 0.3 }); }
+    constructor() { this.items = []; this.bits = []; this.texts = []; this.shards = []; this.ghosts = []; this.flashA = 0; this.flashCol = '#fff'; }
+    // One sprite animation played once over `life` seconds.
+    // o: flip, flipY, delay, under (drawn on the floor, beneath the pieces)
+    spr(name, tint, x, y, life, o) {
+      const it = Object.assign({ name, tint, x, y, life: life || 0.3 }, o);
+      it.age = -(it.delay || 0);
+      this.items.push(it);
+      return it;
+    }
+    slash(x, y, r, tint, life, o) { return this.spr(pick(r, [[62, 'slash_s'], [90, 'slash_m'], [999, 'slash_l']]), tint, x, y, life || 0.26, o); }
+    rapier(x, y, r, tint, life, o) { return this.spr(r < 64 ? 'rapier_s' : 'rapier_m', tint, x, y, life || 0.22, o); }
+    hit(x, y, pow, tint) { return this.spr(pick(pow, [[0.5, 'hit_s'], [1.4, 'hit_m'], [99, 'hit_l']]), tint, x, y, 0.24 + 0.04 * pow, { flip: Math.random() < 0.5, flipY: Math.random() < 0.5 }); }
+    burst(x, y, big, tint, life) { return this.spr(big ? 'burst_l' : 'burst_m', tint, x, y, life || 0.5); }
+    shock(x, y, r, tint, life, delay) { return this.spr(pick(r, [[58, 'shock_s'], [100, 'shock_m'], [150, 'shock_l'], [999, 'shock_xl']]), tint, x, y, life || 0.4, { under: true, delay }); }
+    pillar(x, y, w, tint, life) { return this.spr(w < 36 ? 'pillar_s' : 'pillar_l', tint, x, y, life || 0.45, { pillar: true }); }
+    glint(x, y, r, tint, life) { return this.spr(pick(r, [[22, 'glint_s'], [30, 'glint_m'], [999, 'glint_l']]), tint, x, y, life || 0.25); }
+    thrust(x0, y, x1, tint, life) { const len = Math.abs(x1 - x0); return this.spr(pick(len, [[130, 'thrust_s'], [260, 'thrust_m'], [9999, 'thrust_l']]), tint, (x0 + x1) / 2, y, life || 0.2, { flip: x1 < x0 }); }
+    cut(x, y, flip, tint, life) { return this.spr('cut', tint, x, y, life || 0.75, { flip }); }
+    charge(x, y, tint, life) { return this.spr('charge', tint, x, y, life || 0.3); }
+    land(x, y, big, tint) { return this.spr(big ? 'dust_l' : 'dust_s', tint || 'dust', x, y, big ? 0.6 : 0.45); }
     flash(a, col) { this.flashA = Math.max(this.flashA, a); this.flashCol = col || '#fff'; }
     // Pop-up text in screen space. o: s scale, c colour, o outline, life, g gradient, rise
     text(str, x, y, o) { this.texts.push(Object.assign({ str, x, y, age: 0, life: 0.9, s: 2 }, o)); }
-    sparks(x, y, n, cols, sp, life) {
-      this.parts.burst(x, y, n, { kind: 'spark', palette: cols, sp: sp || 160, life: life || 0.35, g: 240, drag: 2, s: 1, s2: 2, glow: true });
+
+    // A small sprite with its own motion. o: vx, vy, g, drag, floor, life, spin (frames a second), spark
+    bit(name, tint, x, y, o) { const b = Object.assign({ name, tint, x, y, vx: 0, vy: 0, life: 0.5, age: 0, ph: Math.random() * 4 }, o); this.bits.push(b); return b; }
+    scatter(n, x, y, o, make) {
+      for (let i = 0; i < n; i++) {
+        const a = (o.a0 !== undefined ? o.a0 : 0) + Math.random() * (o.spread !== undefined ? o.spread : Math.PI * 2);
+        const sp = (o.sp || 60) * rnd(0.35, 1);
+        make(Math.cos(a) * sp, Math.sin(a) * sp, (o.life || 0.5) * rnd(0.6, 1));
+      }
     }
-    dust(x, y, n, col) {
-      this.parts.burst(x, y, n, { kind: 'smoke', col: col || '#e8dcc8', sp: 46, life: 0.5, a0: Math.PI, spread: Math.PI, drag: 3, s: 2, s1: 9, al: 0.5 });
+    sparks(x, y, n, tint, sp, life) {
+      this.scatter(n, x, y, { sp: sp || 160, life: life || 0.35 }, (vx, vy, lf) => this.bit('spark', Math.random() < 0.3 ? 'white' : tint, x, y, { vx, vy, life: lf, g: 240, drag: 2, spark: true }));
     }
+    dust(x, y, n, tint) {
+      const big = n >= 12;
+      this.scatter(Math.ceil(n / 3), x, y, { sp: big ? 70 : 46, a0: Math.PI, spread: Math.PI, life: 0.62 }, (vx, vy, lf) => this.bit(big && Math.random() < 0.5 ? 'puff_c' : Math.random() < 0.5 ? 'puff_a' : 'puff_b', tint || 'dust', x + vx * 0.08, y - 3, { vx, vy: vy * 0.45, life: lf, drag: 3, flip: Math.random() < 0.5 }));
+    }
+    // Rubble that flies, falls and bounces. o: sp, life, g, a0, spread, floor, big
+    debris(x, y, n, tint, o) {
+      this.scatter(n, x, y, o, (vx, vy, lf) => this.bit('chunk' + ((Math.random() * (o.big ? 4 : 3)) | 0), tint || 'rock', x, y, { vx, vy, life: lf, g: o.g || 620, floor: o.floor, spin: rnd(8, 16) }));
+    }
+    petals(x, y, n, tints, sp) {
+      this.scatter(n, x, y, { sp: sp || 300, life: 1.1 }, (vx, vy, lf) => this.bit('petal', tints[(Math.random() * tints.length) | 0], x, y, { vx, vy, life: lf, g: 160, drag: 2.4, spin: rnd(6, 11), flip: Math.random() < 0.5 }));
+    }
+    twinkle(x, y, tint, life) { return this.bit('twinkle', tint || 'white', x, y, { life: life || 0.5 }); }
+
     // Break a sprite frame into flying fragments.
     shatter(t, team, anim, i, x, y, scale, flip, dir) {
       const f = BC.frame(t, anim, i), img = A.img[BC.TEAMS[team].key + '_' + BC.PIECE[t]];
@@ -80,10 +136,18 @@
     }
     ghost(t, team, anim, i, x, y, o, life) { this.ghosts.push({ t, team, anim, i, x, y, o: Object.assign({}, o), age: 0, life: life || 0.25 }); }
     update(dt, real) {
-      this.parts.update(dt);
       this.flashA = Math.max(0, this.flashA - (real === undefined ? dt : real) * 4.5);
       for (const list of [this.items, this.texts, this.ghosts]) {
         for (let i = list.length - 1; i >= 0; i--) { list[i].age += dt; if (list[i].age >= list[i].life) list.splice(i, 1); }
+      }
+      for (let i = this.bits.length - 1; i >= 0; i--) {
+        const b = this.bits[i];
+        b.age += dt;
+        if (b.age >= b.life) { this.bits.splice(i, 1); continue; }
+        if (b.g) b.vy += b.g * dt;
+        if (b.drag) { const k = Math.max(0, 1 - b.drag * dt); b.vx *= k; b.vy *= k; }
+        b.x += b.vx * dt; b.y += b.vy * dt;
+        if (b.floor !== undefined && b.y > b.floor) { b.y = b.floor; b.vy *= -0.4; b.vx *= 0.6; if (b.spin) b.spin *= 0.6; }
       }
       for (let i = this.shards.length - 1; i >= 0; i--) {
         const s = this.shards[i];
@@ -93,6 +157,22 @@
         if (s.y > s.floor) { s.y = s.floor; s.vy *= -0.36; s.vx *= 0.55; s.vr *= 0.5; if (Math.abs(s.vy) < 30) { s.vy = 0; s.vr = 0; } }
       }
     }
+    drawItem(ctx, it) {
+      if (it.age < 0) return;
+      const fr = BC.fxAnim(it.name, it.tint);
+      if (!fr) return;
+      const i = Math.min(fr.length - 1, (it.age / it.life * fr.length) | 0);
+      BC.drawFx(ctx, it.name, it.tint, i, it.x, it.y, it);
+      const f = fr[i];
+      if (it.pillar && f[6]) {
+        // the column runs on up out of the screen: repeat the top of the drawing above itself
+        const th = Math.floor(f[3] * 0.4), x = Math.round(it.x) - f[4], top = Math.round(it.y) - f[5];
+        ctx.imageSmoothingEnabled = false;
+        for (let n = 1; n <= Math.ceil(700 / th); n++) ctx.drawImage(A.img.fx, f[0], f[1], f[2], th, x, top - n * th, f[2], th);
+      }
+    }
+    // Effects that lie on the floor: call before the pieces standing on it are drawn.
+    drawUnder(ctx) { for (const it of this.items) if (it.under) this.drawItem(ctx, it); }
     drawWorld(ctx) {
       for (const g of this.ghosts) BC.drawSprite(ctx, g.t, g.team, g.anim, g.i, g.x, g.y, Object.assign({}, g.o, { alpha: 0.5 * (1 - g.age / g.life), white: 0.6 }));
       ctx.save();
@@ -105,70 +185,17 @@
         ctx.restore();
       }
       ctx.restore();
-      this.parts.draw(ctx);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      for (const p of this.parts.a) {
-        if (!p.glow) continue;
-        ctx.globalAlpha = 0.35 * (1 - p.age / p.life);
-        ctx.fillStyle = p.col || '#fff';
-        ctx.fillRect(Math.round(p.x) - 2, Math.round(p.y) - 2, 5, 5);
-      }
-      for (const it of this.items) {
-        const k = it.age / it.life, a = 1 - k;
-        ctx.globalAlpha = 1;
-        if (it.k === 'arc') {
-          const sw = Math.min(1, k * 3.2), ae = it.a0 + (it.a1 - it.a0) * sw, ccw = it.a1 < it.a0;
-          const as = it.a0 + (it.a1 - it.a0) * Math.max(0, k * 1.6 - 0.6);
-          if (Math.abs(ae - as) < 0.25) continue;
-          const mid = (as + ae) / 2, th = it.th || 0.2;
-          const g = ctx.createRadialGradient(it.x, it.y, it.r * 0.55, it.x, it.y, it.r);
-          g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.6, it.col); g.addColorStop(1, '#ffffff');
-          ctx.globalAlpha = Math.min(1, a * 1.6);
-          ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.arc(it.x, it.y, it.r, as, ae, ccw);
-          ctx.arc(it.x - Math.cos(mid) * it.r * th, it.y - Math.sin(mid) * it.r * th, it.r * (1 - th * 0.35), ae, as, !ccw);
-          ctx.closePath(); ctx.fill();
-        } else if (it.k === 'beam') {
-          const w = it.w * (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85 * 0.7);
-          const g = ctx.createLinearGradient(it.x - w, 0, it.x + w, 0);
-          g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.3, it.col); g.addColorStop(0.5, '#ffffff'); g.addColorStop(0.7, it.col); g.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.globalAlpha = Math.min(1, a * 1.8);
-          ctx.fillStyle = g; ctx.fillRect(it.x - w, -400, w * 2, it.y + 400);
-          const e = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, w * 2.2);
-          e.addColorStop(0, '#ffffff'); e.addColorStop(0.4, it.col); e.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = e; ctx.save(); ctx.translate(it.x, it.y); ctx.scale(1, 0.4); ctx.translate(-it.x, -it.y); ctx.fillRect(it.x - w * 3, it.y - w * 3, w * 6, w * 6); ctx.restore();
-        } else if (it.k === 'ring') {
-          const r = it.r * BC.ease.out(k);
-          ctx.globalAlpha = a; ctx.strokeStyle = it.col; ctx.lineWidth = Math.max(0.5, 5 * a);
-          ctx.beginPath(); ctx.ellipse(it.x, it.y, r, r * it.flat, 0, 0, Math.PI * 2); ctx.stroke();
-          ctx.globalAlpha = a * 0.5; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.5, 2 * a);
-          ctx.beginPath(); ctx.ellipse(it.x, it.y, r * 0.8, r * 0.8 * it.flat, 0, 0, Math.PI * 2); ctx.stroke();
-        } else if (it.k === 'line') {
-          const grow = Math.min(1, k * 6);
-          ctx.globalAlpha = Math.min(1, a * 2.5); ctx.strokeStyle = it.col; ctx.lineCap = 'round';
-          ctx.lineWidth = it.w * (1 - k * 0.8);
-          ctx.beginPath(); ctx.moveTo(it.x, it.y); ctx.lineTo(it.x + (it.x1 - it.x) * grow, it.y + (it.y1 - it.y) * grow); ctx.stroke();
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(0.5, it.w * 0.35 * (1 - k));
-          ctx.beginPath(); ctx.moveTo(it.x, it.y); ctx.lineTo(it.x + (it.x1 - it.x) * grow, it.y + (it.y1 - it.y) * grow); ctx.stroke();
-        } else if (it.k === 'star') {
-          const r = it.r * (0.3 + 0.7 * BC.ease.out(k));
-          ctx.globalAlpha = a; ctx.fillStyle = it.col;
-          ctx.beginPath();
-          for (let i = 0; i < it.n * 2; i++) {
-            const ang = (i / (it.n * 2)) * Math.PI * 2 + it.age * 1.5, rr = i % 2 ? r * 0.16 : r * (i % 4 ? 0.7 : 1);
-            ctx.lineTo(it.x + Math.cos(ang) * rr, it.y + Math.sin(ang) * rr);
-          }
-          ctx.closePath(); ctx.fill();
-          ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(it.x, it.y, r * 0.2 * a, 0, 7); ctx.fill();
-        } else if (it.k === 'glow') {
-          const r = it.r * (0.6 + 0.4 * k), g = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, r);
-          g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, it.col); g.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(it.x - r, it.y - r, r * 2, r * 2);
+      for (const it of this.items) if (!it.under) this.drawItem(ctx, it);
+      for (const b of this.bits) {
+        const k = b.age / b.life;
+        if (b.spark) {
+          const d = SPARK[Math.round(Math.atan2(b.vy, b.vx) / (Math.PI / 4)) & 7];
+          BC.drawFx(ctx, 'spark_' + d[0], b.tint, k * 4, b.x, b.y, { flip: d[1], flipY: d[2] });
+        } else {
+          const n = BC.fxAnim(b.name, b.tint).length;
+          BC.drawFx(ctx, b.name, b.tint, b.spin ? (b.age * b.spin + b.ph) % n : k * n, b.x, b.y, { flip: b.flip, alpha: b.spin && k > 0.8 ? (1 - k) * 5 : 1 });
         }
       }
-      ctx.restore();
     }
     drawScreen(ctx) {
       for (const t of this.texts) {

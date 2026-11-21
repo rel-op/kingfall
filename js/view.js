@@ -36,6 +36,7 @@
     }
     for (const e of BC.ENVS) { jobs.push(loadImg('bg_' + e.key, `assets/bg/${e.key}_board.png`)); jobs.push(loadImg('stage_' + e.key, `assets/bg/${e.key}_battle.png`)); }
     jobs.push(loadImg('logo', 'assets/logo.png'));
+    jobs.push(loadImg('fx', 'assets/fx.png'));
     return Promise.all(jobs);
   };
 

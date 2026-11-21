@@ -78,8 +78,8 @@
       const pv = this.at(sq); pv.mT = 7; pv.anim = 'idle'; pv.at = 0;
       BC.audio.sfx('morph_up', 0.8);
       const p = V.project(pv.u, pv.v + FEET);
-      this.fx.ring(p.x, p.y, 44 * p.s, BC.TEAMS[pv.c].trim, 0.45);
-      this.fx.sparks(p.x, p.y - 30 * p.s, 16, [BC.TEAMS[pv.c].glow, '#ffffff', BC.TEAMS[pv.c].trim], 130, 0.5);
+      this.fx.shock(p.x, p.y, 44, BC.TEAMS[pv.c].key, 0.45);
+      this.fx.sparks(p.x, p.y - 30 * p.s, 12, BC.TEAMS[pv.c].key, 130, 0.5);
     }
     deselect(quiet) {
       if (this.sel < 0) return;
@@ -122,7 +122,7 @@
       if (Math.abs(u - u0) > 0.05) pv.flip = u < u0;
       pv.anim = 'move'; pv.at = 0;
       const p0 = V.project(u0, v0 + FEET);
-      this.fx.dust(p0.x, p0.y, 5, '#fff3e0');
+      this.fx.dust(p0.x, p0.y, 5);
       BC.audio.sfx(pv.t === 'n' ? 'gallop' : pv.t === 'r' ? 'stomp' : 'dash', 0.6);
       await this.tween(d, (k) => {
         pv.u = u0 + (u - u0) * k; pv.v = v0 + (v - v0) * k;
@@ -165,13 +165,13 @@
       const p = V.project(pv.u, pv.v + FEET);
       if (m.promo) {
         pv.t = m.promo; pv.white = 1;
-        this.fx.beam(p.x, p.y, 34 * p.s, BC.TEAMS[team].glow, 0.7); this.fx.ring(p.x, p.y, 70, BC.TEAMS[team].trim, 0.6);
-        this.fx.sparks(p.x, p.y - 40, 40, ['#ffffff', BC.TEAMS[team].glow, BC.TEAMS[team].trim], 220, 0.8);
+        this.fx.pillar(p.x, p.y, 30, BC.TEAMS[team].key, 0.7); this.fx.shock(p.x, p.y, 70, BC.TEAMS[team].key, 0.6);
+        this.fx.sparks(p.x, p.y - 40, 30, BC.TEAMS[team].key, 220, 0.8);
         this.say('PROMOTION', BC.PIECE_NAMES[m.promo], team); BC.audio.sfx('promote');
         pv.anim = 'idle'; await this.wait(0.7);
       }
       await this.morph(pv, 0);
-      this.fx.dust(p.x, p.y, 8); BC.audio.sfx('land', 0.7); this.shake(1.5);
+      this.fx.land(p.x, p.y, false); BC.audio.sfx('land', 0.7); this.shake(1.5);
       this.speed = 1;
       this.refresh();
       const st = C.status(S);
@@ -191,7 +191,9 @@
     smash(victim, dir) {
       const p = V.project(victim.u, victim.v + FEET);
       this.fx.shatter(victim.t, victim.c, 'morph', 0, p.x, p.y, p.s, victim.flip, dir);
-      this.fx.dust(p.x, p.y, 12); this.fx.sparks(p.x, p.y - 30, 20, ['#fff', BC.TEAMS[victim.c].stone[0]], 200);
+      const rubble = BC.TEAMS[victim.c].key + 'stone';
+      this.fx.land(p.x, p.y, true, rubble); this.fx.dust(p.x, p.y, 12, rubble); this.fx.hit(p.x, p.y - 30 * p.s, 2, BC.TEAMS[1 - victim.c].key);
+      this.fx.debris(p.x, p.y - 24, 16, rubble, { sp: 200, life: 1, g: 620, floor: p.y + 4, a0: Math.PI, spread: Math.PI });
       victim.hidden = true; this.shake(6); this.fx.flash(0.3); BC.audio.sfx('shatter');
     }
     say(str, sub, team) { this.banner = { str, sub, team, age: 0, life: 1.5 }; }
@@ -223,7 +225,7 @@
         const mine = this.pv.filter((p) => p.c === this.S.turn && !p.hidden && p.m === 0);
         if (mine.length) {
           const p = mine[(Math.random() * mine.length) | 0], q = V.project(p.u, p.v + FEET);
-          this.fx.parts.add({ kind: 'star', x: q.x + (Math.random() - 0.5) * 14 * q.s, y: q.y - (20 + Math.random() * 34) * q.s, life: 0.5, s: 4, col: '#ffffff', glow: true });
+          this.fx.twinkle(q.x + (Math.random() - 0.5) * 14 * q.s, q.y - (20 + Math.random() * 34) * q.s, 'white', 0.5);
         }
       }
       let w = dt * this.speed;
@@ -317,13 +319,7 @@
                 sqQuad(m.to); ctx.fillStyle = `rgba(255,40,60,${0.2 + 0.16 * pulse})`; ctx.fill();
                 sqQuad(m.to, 0.05 + 0.03 * pulse); ctx.strokeStyle = '#ff4058'; ctx.lineWidth = 2.5; ctx.stroke();
               } else {
-                ctx.save(); ctx.globalCompositeOperation = 'lighter';
-                const r = (9 + 3 * pulse) * p.s, g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.4);
-                g.addColorStop(0, T[turn].glow); g.addColorStop(0.35, T[turn].main + 'aa'); g.addColorStop(1, 'rgba(0,0,0,0)');
-                ctx.fillStyle = g; ctx.translate(p.x, p.y); ctx.scale(1, 0.5); ctx.beginPath(); ctx.arc(0, 0, r * 2.4, 0, 7); ctx.fill();
-                ctx.restore();
-                ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 5 * p.s, 2.6 * p.s, 0, 0, 7); ctx.fill();
-                ctx.strokeStyle = T[turn].main; ctx.lineWidth = 1.5; ctx.stroke();
+                BC.drawFx(ctx, 'hint', T[turn].key, (t * 9 + uv.u + uv.v) % 6, p.x, p.y);
               }
             }
           }
@@ -343,10 +339,11 @@
       // pieces, far row first; the fighters are drawn above the dimmed board
       const order = this.pv.filter((p) => !p.hidden).sort((a, b) => a.v - b.v || a.m - b.m);
       const F = this.fight;
+      if (!F) this.fx.drawUnder(ctx);
       for (const p of order) if (!F || (p !== F.a && p !== F.v)) this.drawPiece(ctx, p);
       if (this.dim > 0.01) { ctx.fillStyle = `rgba(10,4,22,${this.dim})`; ctx.fillRect(-200, -200, 1400, 1000); }
       if (F && F.rays > 0.01) this.rays(ctx, F);
-      if (F) for (const p of order) if (p === F.a || p === F.v) this.drawPiece(ctx, p);
+      if (F) { this.fx.drawUnder(ctx); for (const p of order) if (p === F.a || p === F.v) this.drawPiece(ctx, p); }
       this.fx.drawWorld(ctx);
       this.amb.draw(ctx, true);
 
@@ -367,17 +364,9 @@
     }
     // Manga-style focus lines converging on a finishing blow.
     rays(ctx, F) {
-      const p = V.project(F.v.u, F.v.v + FEET), col = BC.TEAMS[F.a.c], r = BC.rng(((this.rt * 24) | 0) + 5);
-      ctx.save(); ctx.translate(p.x, p.y - 44); ctx.globalCompositeOperation = 'lighter';
-      for (let i = 0; i < 46; i++) {
-        const a = r() * Math.PI * 2, w = 0.012 + r() * 0.05, r0 = 70 + r() * 90;
-        ctx.globalAlpha = F.rays * (0.25 + r() * 0.5);
-        ctx.fillStyle = i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? col.trim : col.main;
-        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
-        ctx.lineTo(Math.cos(a - w) * 900, Math.sin(a - w) * 900); ctx.lineTo(Math.cos(a + w) * 900, Math.sin(a + w) * 900);
-        ctx.closePath(); ctx.fill();
-      }
-      ctx.restore();
+      // one drawn frame, mirrored four ways in turn so the lines jitter
+      const p = V.project(F.v.u, F.v.v + FEET), i = (this.rt * 16) | 0;
+      BC.drawFx(ctx, 'focus', BC.TEAMS[F.a.c].key, 0, p.x, p.y - 44, { flip: i & 1, flipY: i & 2, alpha: F.rays * 0.9 });
     }
   }
   // Dormant statues are sized like a real chess set: pawns shortest, king tallest.

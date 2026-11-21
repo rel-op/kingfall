@@ -56,6 +56,12 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   (prompts in `tools/art-jobs.json`). `tools/process_art.py` keys them, cuts the frames,
   scales each piece to one size, snaps it to a shared palette, closes the ink outline and
   packs `assets/sprites/`.
+- Effects are sprites too (`assets/fx.png`, built by `tools/draw_fx.py`). The organic ones
+  (slashes, hit sparks, bursts, the pillar of light, dust) were drawn by the image model as
+  8-frame sheets on black and redrawn on the game's own pixel grid at each size needed; the
+  geometric ones (glints, the king's hairline cut, sparks, rubble, focus lines, wide
+  shockwaves) are drawn in code. Each is stored as light levels and coloured per army, so
+  Sun and Moon share the same drawings.
 - Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`), then
   levelled and packed by `tools/pack-audio.mjs`.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
@@ -65,6 +71,7 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
 node tests/perft.js                       # rules check: move counts against known totals
 node tools/drive.mjs "index.html?game&manual" tests/soak.json   # plays a whole random game, fights included
 uv run tools/process_art.py               # rebuild sprites from art/raw
+uv run tools/draw_fx.py --preview         # rebuild effect sprites, write out/fx-preview.png
 node tools/pack-audio.mjs                 # rebuild assets/sfx.js
 node tools/trailer.mjs                    # re-record trailer.mp4
 ```
