@@ -330,6 +330,75 @@ def do_logo():
     print("   logo", w, h)
 
 
+# The pond corner of the sakura backdrop (x, y, w, h at 960x540), and a point on the head of each painted koi.
+POND = (0, 392, 140, 96)
+KOI_HEADS = [(76, 414), (70, 429), (112, 440)]
+KOI_CELL = (100, 44)   # each koi is saved at twice size in a cell this big, head to the right, body through the middle
+
+
+def lift_koi():
+    """Cut the painted koi out of the sakura backdrop so the game can make them swim.
+
+    Each becomes a sprite lying flat with its head to the right; the water where it was is
+    repainted from the water beside it, row by row, which keeps the ripples running level.
+    """
+    path = OUT / "bg" / "sakura_board.png"
+    full = np.asarray(Image.open(path).convert("RGB")).copy()
+    x0, y0, w, h = POND
+    p = full[y0:y0 + h, x0:x0 + w].astype(np.int32)
+    r, g, b = p[..., 0], p[..., 1], p[..., 2]
+    warm = (r > g + 18) & (r > b + 10) & (r > 120)                  # the red and orange of a koi
+    pale = (p.min(-1) > 168) & (p.max(-1) - p.min(-1) < 60)         # its white
+    lab, _ = ndimage.label(ndimage.binary_dilation(warm | pale))
+    cw, ch = KOI_CELL
+    sheet = Image.new("RGBA", (cw, ch * len(KOI_HEADS)))
+    gone = np.zeros((h, w), bool)
+    for n, (hx, hy) in enumerate(KOI_HEADS):
+        body = lab == lab[hy - y0, hx - x0]
+        assert body.sum() > 100 and lab[hy - y0, hx - x0] > 0, "koi not found where expected"
+        ys, xs = np.nonzero(body)
+        pts = np.stack([xs, ys], 1).astype(float)
+        mid = pts.mean(0)
+        axis = np.linalg.svd(pts - mid)[2][0]                       # the line the body lies along
+        if np.dot(axis, np.array([hx - x0, hy - y0]) - mid) < 0:
+            axis = -axis                                            # pointing at the head
+        m = 3
+        box = (max(xs.min() - m, 0), max(ys.min() - m, 0), min(xs.max() + m + 1, w), min(ys.max() + m + 1, h))
+        rgb = p[box[1]:box[3], box[0]:box[2]].astype(np.uint8)
+        alpha = body[box[1]:box[3], box[0]:box[2]]
+        rgb[~alpha] = rgb[alpha].mean(0).astype(np.uint8)           # so turning it leaves no dark fringe
+        big = lambda a, mode: Image.fromarray(a, mode).resize((a.shape[1] * 2, a.shape[0] * 2), Image.NEAREST)
+        turn = float(np.degrees(np.arctan2(axis[1], axis[0])))
+        colour = big(rgb, "RGB").rotate(turn, Image.BICUBIC, expand=True)
+        mask = big((alpha * 255).astype(np.uint8), "L").rotate(turn, Image.BICUBIC, expand=True)
+        spr = colour.convert("RGBA")
+        spr.putalpha(mask)
+        spr = spr.crop(mask.getbbox())
+        assert spr.width <= cw and spr.height <= ch, f"koi {n} is {spr.size}, larger than its cell"
+        sheet.paste(spr, ((cw - spr.width) // 2, n * ch + (ch - spr.height) // 2))
+        gone |= ndimage.binary_dilation(body, iterations=2)
+        print("   koi", n, spr.size, "heading", round(turn))
+    # water only: not koi, not the pale stone and moss round the pond
+    wet = ~gone & ~(warm | pale) & (g + b > r * 2 - 30) & (p.max(-1) < 200)
+    for y in range(h):
+        row = np.nonzero(gone[y])[0]
+        if not len(row):
+            continue
+        for run in np.split(row, np.nonzero(np.diff(row) > 1)[0] + 1):
+            a, z = run[0], run[-1]
+            left = [x for x in range(a - 1, max(a - 30, -1), -1) if wet[y, x]]
+            right = [x for x in range(z + 1, min(z + 30, w)) if wet[y, x]]
+            for x in run:
+                near_left = x - a <= z - x
+                src = (left if (near_left and left) or not right else right)
+                if src:
+                    k = (x - a) if src is left else (z - x)
+                    p[y, x] = p[y, src[k % len(src)]]
+    full[y0:y0 + h, x0:x0 + w] = p.astype(np.uint8)
+    Image.fromarray(full).save(path)
+    sheet.save(OUT / "bg" / "sakura_koi.png")
+
+
 def do_backgrounds():
     do_logo()
     (OUT / "bg").mkdir(parents=True, exist_ok=True)
@@ -342,6 +411,7 @@ def do_backgrounds():
         im = im.resize((960, 540), Image.LANCZOS).quantize(colors=160, method=Image.MEDIANCUT, dither=Image.NONE).convert("RGB")
         im.save(OUT / "bg" / (src.stem[3:] + ".png"))
         print("   bg", src.stem)
+    lift_koi()
 
 
 def main():

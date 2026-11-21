@@ -35,6 +35,7 @@
       jobs.push(loadImg('face_' + team + '_' + PIECE[k], `assets/portraits/${team}_${PIECE[k]}.png`));
     }
     for (const e of BC.ENVS) { jobs.push(loadImg('bg_' + e.key, `assets/bg/${e.key}_board.png`)); jobs.push(loadImg('stage_' + e.key, `assets/bg/${e.key}_battle.png`)); }
+    jobs.push(loadImg('koi', 'assets/bg/sakura_koi.png'));   // the pond's fish, cut out of the backdrop by tools/process_art.py
     jobs.push(loadImg('logo', 'assets/logo.png'));
     jobs.push(loadImg('fx', 'assets/fx.png'));
     return Promise.all(jobs);
@@ -193,13 +194,17 @@
   //   flow:  water or lava running down               [x, y, w, h, 'r,g,b', pixels a second]
   //   glow:  a light that slowly swells and fades     [x, y, radius, 'r,g,b', strength, speed]
   //   glint: sparkles on water                        [x, y, w, h, 'r,g,b']
-  //   koi:   fish circling in a pond                  [centre x, centre y, radius x, radius y, speed]
+  //   koi:   the pond's fish, each on its own loop    [centre x, centre y, radius x, radius y, tilt, pixels a second]
+  //          (a minus speed swims the loop the other way; the row in the koi picture is the place in this list)
+  //   pond:  the outline of the water, so a fish passing under a rock or a leaf is hidden by it
   const LIFE = {
     sakura: {
       hang: [[208, 87, 30, 70], [354, 97, 28, 56], [505, 97, 29, 56], [678, 97, 29, 56], [823, 87, 32, 71]],
       flow: [[16, 340, 22, 52, '255,255,255', 70]],
       glint: [[8, 408, 80, 40, '225,255,240'], [40, 448, 48, 18, '225,255,240']],
-      koi: [[36, 426, 24, 5, 0.24], [52, 458, 20, 6, -0.19]],
+      koi: [[56, 430, 30, 15, 0.1, -7], [64, 446, 34, 18, 0.12, 9], [100, 438, 22, 15, -0.3, -8]],
+      pond: [[0, 394], [40, 393], [66, 398], [94, 404], [120, 414], [136, 426], [138, 432], [127, 437], [127, 456], [100, 457],
+        [90, 464], [78, 470], [66, 480], [48, 478], [40, 472], [30, 460], [22, 450], [22, 434], [0, 428]],
     },
     ember: {
       hang: [[188, 44, 27, 69], [758, 67, 24, 66]],
@@ -218,7 +223,29 @@
   };
   // a steady pseudo-random number for item n, so sparkles and streaks need no stored state
   const rnd = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
-  const KOI = [['#f6efe2', '#f0692a', '#f0692a', '#f6efe2', '#f0692a', '#eaa878', '#f8dcc4'], ['#f6efe2', '#f6efe2', '#e9b23a', '#f6efe2', '#f6efe2', '#e9d2a0', '#fbf3e2']];
+  // A fish's loop as points close together, each with the distance swum to reach it.
+  function track([cx, cy, rx, ry, tilt, speed]) {
+    const pts = [], n = 160, c = Math.cos(tilt), s = Math.sin(tilt);
+    let len = 0;
+    for (let i = 0; i <= n; i++) {
+      const a = Math.sign(speed) * i / n * Math.PI * 2, x = Math.cos(a) * rx, y = Math.sin(a) * ry;
+      const p = { x: cx + x * c - y * s, y: cy + x * s + y * c };
+      if (i) len += Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y);
+      p.d = len; pts.push(p);
+    }
+    return { pts, len, speed: Math.abs(speed) };
+  }
+  // Where a fish is, and which way it faces, after swimming d along its loop.
+  function along(T, d) {
+    const P = T.pts;
+    d = ((d % T.len) + T.len) % T.len;
+    let i = Math.min(P.length - 2, (d / T.len * (P.length - 1)) | 0);
+    while (i > 0 && P[i].d > d) i--;
+    while (i < P.length - 2 && P[i + 1].d < d) i++;
+    const a = P[i], b = P[i + 1], k = (d - a.d) / (b.d - a.d || 1);
+    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+  }
+  const KOI = { w: 50, h: 22, cuts: 17 };   // a fish in backdrop pixels (its picture is twice that), and how many slices it bends in
 
   class Ambient {
     constructor(env) { this.env = env; this.p = new BC.Parts(); this.t = 0; this.acc = 0; for (let i = 0; i < 90; i++) this.update(0.1); }
@@ -295,16 +322,27 @@
       (L.flame || []).forEach(([x, y, w, h], n) => {
         for (let j = 0; j < h - 3; j += 2) { const v = 1 - j / h; ctx.drawImage(bg, x, y + j, w, 3, x + (Math.sin(t * 8 + n * 2 + j * 0.45) + 0.5 * Math.sin(t * 13.1 + j * 0.8)) * 1.1 * v * v, y + j, w, 3); }
       });
-      (L.koi || []).forEach(([cx, cy, rx, ry, sp], n) => {
-        // each part of the body follows the head round the same loop, so the fish bends through the turns
-        ctx.globalAlpha = 0.82;
-        for (let j = 6; j >= 0; j--) {
-          const b = t * sp + n * 2.4 - Math.sign(sp) * j * 2.1 / rx, wd = [3, 4.4, 4.6, 3.8, 2.6, 1.8, 3.4][j];
-          ctx.fillStyle = KOI[n % 2][j];
-          ctx.beginPath(); ctx.arc(cx + Math.cos(b) * rx, cy + Math.sin(b) * ry + Math.sin(t * 6 - j * 0.9) * 0.14 * j, wd / 2, 0, 7); ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-      });
+      const fish = BC.assets.img.koi;
+      if (L.koi && fish) {
+        const K = this.koi || (this.koi = L.koi.map(track)), dw = KOI.w / KOI.cuts;
+        ctx.save();
+        ctx.beginPath(); L.pond.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.clip();
+        ctx.globalAlpha = 0.94;
+        K.forEach((T, n) => {
+          // steady swimming with a slow surge and ease, so the three never look like clockwork
+          const head = t * T.speed + 6 * Math.sin(t * 0.31 + n * 2) + n * 47;
+          // the fish is drawn tail first in slices, each one set on the loop where that part of the body is,
+          // so it bends through the turns; the slices also swing from side to side, most at the tail
+          for (let k = KOI.cuts - 1; k >= 0; k--) {
+            const q = along(T, head - (k + 0.5) * dw), sway = Math.sin(t * 4.5 - k * 0.55 + n) * (0.1 + 1.2 * (k / KOI.cuts) ** 1.6);
+            ctx.save();
+            ctx.translate(q.x - Math.sin(q.ang) * sway, q.y + Math.cos(q.ang) * sway); ctx.rotate(q.ang);
+            ctx.drawImage(fish, (KOI.w - (k + 1) * dw) * 2, n * KOI.h * 2, dw * 2 + 1, KOI.h * 2, -dw / 2, -KOI.h / 2, dw + 0.5, KOI.h);
+            ctx.restore();
+          }
+        });
+        ctx.restore();
+      }
       ctx.globalCompositeOperation = 'lighter';
       for (const [x, y, w, h, col, sp] of L.flow || []) {
         for (let n = 0; n < w * h / 45; n++) {

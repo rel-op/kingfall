@@ -42,7 +42,7 @@ Press A or click during a fight to fast-forward it.
   bishop's pillars of light, the rook golem's launcher and slam, the queen's blink-and-flurry,
   and the king's one-cut finish.
 - Four arenas: Sakura Keep, Ember Forge, Frostmoon Abbey, Stormwall Keep. Each has two music themes; a game plays one three times, then the other. The backdrops move a little:
-  banners and flags in the wind, brazier flames, koi in the pond, lava, candle and window light.
+  banners and flags in the wind, brazier flames, the koi swimming round their pond, lava, candle and window light.
 - One player: sixteen computer opponents, from the Stable Hand, who has just learned the moves, up to
   the Crown at full strength. Play either army.
 - A coach for one-player games, off, tips only, or full. A tip shows first which piece to move, then
@@ -98,6 +98,8 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   of each music track without re-encoding it.
 - The backdrop animations are listed per arena in the `LIFE` table in `js/view.js`, as boxes in backdrop
   pixels. Cloth and fire are the picture's own pixels, redrawn in thin strips pushed slightly out of line.
+  The koi are the painted ones: `tools/process_art.py` cuts them out of the sakura backdrop into
+  `assets/bg/sakura_koi.png` and repaints the water where they were; the game swims each round a loop.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
   headless Chrome and mixing in each sound at the moment the game played it.
 
