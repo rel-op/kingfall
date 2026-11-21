@@ -1,0 +1,14 @@
+[
+  { "wait": 2500 },
+  { "eval": "navigator.serviceWorker.ready.then(() => new Promise((r) => setTimeout(r, 1500))).then(() => 'first visit: ' + JSON.stringify({ fresh: BC.app.fresh, inControl: !!navigator.serviceWorker.controller }))" },
+  { "reload": true },
+  { "wait": 1000 },
+  { "eval": "caches.keys().then((k) => 'before: ' + JSON.stringify({ fresh: BC.app.fresh, mark: BC.app.mark || null, caches: k.length, top: BC.ui.stack[0].items[0].label }))" },
+  { "edit": { "sw.js": ["const CACHE = 'kingfall-", "const CACHE = 'kingfall-next-"], "js/app.js": ["APP.fresh = false;", "APP.fresh = false; APP.mark = 'next';"] } },
+  { "eval": "document.dispatchEvent(new Event('visibilitychange')); 'came back into view, so it looks for a new version'" },
+  { "wait": 6000 },
+  { "eval": "caches.keys().then((k) => 'new version saved: ' + JSON.stringify({ fresh: BC.app.fresh, mark: BC.app.mark || null, caches: k.length, next: k[0].startsWith('kingfall-next-'), top: BC.ui.stack[0].items[0].label }))" },
+  { "shot": "out/update-notice.png" },
+  { "tap": "(() => { const m = BC.ui.stack[0], b = m.box(), X = m.xf(); return [(b.x + b.w / 2) * X.k + X.dx, (b.y + m.head + 10) * X.k + X.dy]; })()", "after": 2500 },
+  { "eval": "caches.keys().then(async (k) => 'after restart: ' + JSON.stringify({ fresh: BC.app.fresh, mark: BC.app.mark || null, caches: k.length, files: (await (await caches.open(k[0])).keys()).length, top: BC.ui.stack[0].items[0].label, scene: BC.scene.constructor.name }))" }
+]

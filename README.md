@@ -15,7 +15,8 @@ Or download this folder and open `index.html` in a browser. Nothing to install, 
 On a phone or tablet it needs a web address (any static host will do: the folder is the site). Hold the
 phone sideways, tap a piece, then a square. From a web address it can also be installed as an app, which
 opens full screen and works offline: Android, Chrome and Edge show INSTALL AS AN APP on the title menu;
-on an iPhone or iPad the same item lists the steps (Share, then Add to Home Screen).
+on an iPhone or iPad the same item lists the steps (Share, then Add to Home Screen). It updates by
+itself: a new version is downloaded while you play, and the title menu then shows NEW VERSION: RESTART.
 
 | | Mouse | Gamepad | Keyboard |
 |---|---|---|---|
@@ -88,7 +89,9 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   replay of your mistakes follow what Lichess, Chess.com's coach and Lucas Chess do.
 - The installable app is a manifest, four icons (`tools/make_icons.py`) and `sw.js`, which keeps a copy of
   every game file on the device and refreshes it in the background. `tools/make-sw.mjs` writes `sw.js`
-  with the file list; run it after changing game files, so a first visit saves the new set in one go.
+  with the file list and a version made from the files' contents; run it after changing game files.
+  A changed `sw.js` is what tells a device there is a new version: it saves the whole new set, then
+  `js/app.js` raises the restart notice.
 - Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`), then
   levelled and packed by `tools/pack-audio.mjs`.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
@@ -107,6 +110,7 @@ uv run tools/make_icons.py                # rebuild the app icons
 node tools/make-sw.mjs                    # rebuild sw.js (the offline file list) after changing game files
 MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/touch.json   # a phone-sized game played by touch
 MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/app.json     # install parts, then play with the server stopped
+node tools/drive.mjs "serve:index.html" tests/update.json                 # a pretend new version: notice, restart, new files
 node tools/trailer.mjs                    # re-record trailer.mp4
 ```
 

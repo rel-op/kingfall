@@ -1,4 +1,4 @@
-// Installing the game as an app: offline support and the install offer.
+// Installing the game as an app: offline support, the install offer, and noticing a new version.
 (function () {
   'use strict';
   const BC = window.BC, APP = BC.app = { prompt: null };
@@ -13,5 +13,19 @@
   // What the title menu should offer: 'prompt' (one tap), 'ios' (show the steps), or nothing.
   APP.offer = () => (APP.installed || !web ? null : APP.prompt ? 'prompt' : APP.ios ? 'ios' : null);
   APP.install = function () { const p = APP.prompt; APP.prompt = null; try { if (p) Promise.resolve(p.prompt()).catch(() => {}); } catch (e) { /* the browser withdrew the offer */ } };
-  if (web && 'serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  // True once a newer copy of the game has been saved while this one was running; a restart switches to it.
+  APP.fresh = false;
+  APP.restart = () => location.reload();
+  if (web && 'serviceWorker' in navigator) {
+    const sw = navigator.serviceWorker;
+    // the offline script takes charge once on a first visit; any take-over after that is a new version
+    let held = sw.controller ? 1 : 0;
+    sw.addEventListener('controllerchange', () => { if (held++) APP.fresh = true; });
+    window.addEventListener('load', () => {
+      sw.register('sw.js').then((reg) => {
+        // an installed app is put aside rather than closed, so look for a new version each time it comes back
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+      }).catch(() => {});
+    });
+  }
 })();

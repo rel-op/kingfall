@@ -335,8 +335,9 @@
     constructor() { this.t = 0; this.envI = 0; this.clockI = 3; this.cpu = Object.assign({ level: 3, side: 0, coach: 2, clockI: 0 }, BC.save.get('solo') || {}); this.amb = new BC.Ambient(BC.ENVS[0]); BC.audio.music('title'); this.main(); }
     main() {
       UI.clear();
-      const has = !!BC.save.get('auto'), app = this.offer = BC.app.offer(), rows = 5 + (has ? 1 : 0) + (app ? 1 : 0);
+      const has = !!BC.save.get('auto'), app = this.offer = BC.app.offer(), fresh = this.fresh = BC.app.fresh, rows = 5 + (has ? 1 : 0) + (app ? 1 : 0) + (fresh ? 1 : 0);
       UI.open({ title: '', sticky: true, shade: false, y: 518 - 32 - rows * 28, w: 330, bare: true, items: [
+        ...(fresh ? [{ label: 'NEW VERSION: RESTART', act: BC.app.restart }] : []),
         ...(has ? [{ label: 'CONTINUE', act: () => loadSlot('auto') }] : []),
         { label: 'ONE PLAYER', act: () => this.solo() },
         { label: 'TWO PLAYERS', act: () => this.setup() },
@@ -389,7 +390,8 @@
     input() {}
     update(dt) {
       this.t += dt; this.amb.update(dt);
-      if (UI.stack.length === 1 && this.offer !== BC.app.offer()) this.main();   // the offer to install can arrive late
+      // the offer to install, or word of a new version, can arrive late
+      if (UI.stack.length === 1 && (this.offer !== BC.app.offer() || this.fresh !== BC.app.fresh)) this.main();
     }
     draw(ctx) {
       const env = BC.ENVS[this.envI], t = this.t;

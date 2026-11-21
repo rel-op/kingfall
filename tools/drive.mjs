@@ -3,6 +3,7 @@
 // A target starting "serve:" is served over http from this folder for the run (needed for the installable-app parts).
 // env: STRICT=1 drops Chrome's file-access flag; MOBILE=844x390 emulates a phone with a touch screen.
 // steps: {"tap":[x,y]} in game coordinates (960x540)  {"server":false} stops the server  {"reload":true}
+// steps: {"edit":{"sw.js":["find","replace"]}} from then on the server sends that file changed, as if a new version was published
 // steps: {"wait":ms} {"eval":"js"} {"evalFile":"path.js"} {"shot":"out.png"} {"size":[w,h]} {"frames":{n,dt,dir,every,at:{frame:js}}}
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,12 +19,17 @@ const steps = JSON.parse(existsSync(arg) ? readFileSync(arg, 'utf8') : arg);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
   '.png': 'image/png', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.css': 'text/css' };
 let server = null;
+const edits = {};
 if (target.startsWith('serve:')) {
   const root = process.cwd();
   server = createServer((req, res) => {
     const path = join(root, normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^([/\\]|\.\.)+/, '')), file = path.endsWith('/') || path === root ? join(path, 'index.html') : path;
-    try { const body = readFileSync(file); res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(body); }
-    catch (e) { res.writeHead(404); res.end('not found'); }
+    try {
+      let body = readFileSync(file);
+      const e = edits[file.slice(root.length + 1)];
+      if (e) body = Buffer.from(body.toString().replace(e[0], () => e[1]));
+      res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(body);
+    } catch (e) { res.writeHead(404); res.end('not found'); }
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
 }
@@ -70,6 +76,7 @@ try {
     if (s.size) await send('Emulation.setDeviceMetricsOverride', { width: s.size[0], height: s.size[1], deviceScaleFactor: 1, mobile: false });
     if (s.server === false && server) { await new Promise((r) => { server.closeAllConnections(); server.close(r); }); server = null; }
     if (s.reload) { await send('Page.reload'); await sleep(1500); }
+    if (s.edit) Object.assign(edits, s.edit);
     if (s.tap) {
       // game coordinates to page coordinates, then a finger tap or a mouse click
       const r = await send('Runtime.evaluate', { expression: '(() => { const r = BC.canvas.getBoundingClientRect(); return [r.left, r.top, r.width]; })()', returnByValue: true });
