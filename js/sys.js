@@ -8,7 +8,8 @@
     put(k, v) { try { localStorage.setItem('kingfall.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
     del(k) { try { localStorage.removeItem('kingfall.' + k); } catch (e) { /* storage unavailable */ } } };
   BC.save = store;
-  BC.opts = Object.assign({ hints: true, fights: 'full', orient: 'side', music: 0.5, sfx: 0.8, bloom: true }, store.get('opts') || {});
+  // arena and clock are the last ones picked on the title menus (clock: place in the list of time limits, for two players)
+  BC.opts = Object.assign({ hints: true, fights: 'full', orient: 'side', music: 0.5, sfx: 0.8, bloom: true, arena: 0, clock: 3 }, store.get('opts') || {});
   BC.saveOpts = () => store.put('opts', BC.opts);
 
   // ---------- audio ----------

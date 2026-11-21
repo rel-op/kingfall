@@ -28,6 +28,7 @@ node tools/drive.mjs "index.html?game&manual" tests/soak.json      # a whole ran
 node tools/drive.mjs "serve:index.html" tests/app.json             # offline copy and install parts
 node tools/drive.mjs "serve:index.html" tests/update.json          # a pretend new version: notice, restart
 node tools/drive.mjs "serve:index.html" tests/arena.json           # fourth arena, music hand-over
+node tools/drive.mjs "serve:index.html" tests/prefs.json           # defaults, and choices kept across a reload
 MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/touch.json   # a phone-sized game played by touch
 ```
 

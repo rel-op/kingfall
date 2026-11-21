@@ -134,7 +134,7 @@
       { label: 'SAVE GAME', act: () => UI.slots('save', game) },
       { label: 'LOAD GAME', act: () => UI.slots('load', game) },
       { label: 'TAKE BACK MOVE', off: () => !game.history.length || game.mode !== 'play', act: () => { game.undo(); UI.close(); } },
-      ...(game.ai ? [{ label: 'COACH', value: () => COACH[game.ai.coach], adj: (d) => { game.ai.coach = (game.ai.coach + d + 3) % 3; game.danger = game.ai.coach === 2 && game.mode === 'play' ? game.hanging() : []; if (!game.ai.coach) game.tip = 0; } },
+      ...(game.ai ? [{ label: 'COACH', value: () => COACH[game.ai.coach], adj: (d) => { game.ai.coach = (game.ai.coach + d + 3) % 3; BC.save.put('solo', Object.assign(BC.save.get('solo') || {}, { v: 2, coach: game.ai.coach })); game.danger = game.ai.coach === 2 && game.mode === 'play' ? game.hanging() : []; if (!game.ai.coach) game.tip = 0; } },
         { label: 'ASK FOR A TIP', off: () => !game.ai.coach || game.mode !== 'play', act: () => { UI.close(); game.askTip(); } }] : []),
       { label: 'OPTIONS', act: UI.options },
       { label: 'QUIT TO TITLE', act: () => { UI.clear(); BC.go(new Title()); } },
@@ -332,7 +332,17 @@
 
   // ---------- title screen ----------
   class Title {
-    constructor() { this.t = 0; this.envI = 0; this.clockI = 3; this.cpu = Object.assign({ level: 3, side: 0, coach: 2, clockI: 0 }, BC.save.get('solo') || {}); this.amb = new BC.Ambient(BC.ENVS[0]); BC.audio.music('title'); this.main(); }
+    constructor() {
+      this.t = 0;
+      // start from what was picked last time; anything missing or out of range falls back to its default
+      const pick = (v, n, d) => (Number.isInteger(v) && v >= 0 && v < n ? v : d), s = BC.save.get('solo') || {};
+      this.envI = pick(BC.opts.arena, BC.ENVS.length, 0); this.clockI = pick(BC.opts.clock, CLOCKS.length, 3);
+      // the coach starts on TIPS ONLY; a choice saved before that became the default (no v) is set to it once
+      this.cpu = { v: 2, level: pick(s.level - 1, BC.ai.LEVELS.length, 2) + 1, side: pick(s.side, 3, 0), coach: s.v === 2 ? pick(s.coach, 3, 1) : 1, clockI: pick(s.clockI, CLOCKS.length, 0) };
+      this.amb = new BC.Ambient(BC.ENVS[this.envI]); BC.audio.music('title'); this.main();
+    }
+    // the arena is one choice shared by both menus
+    arena(d) { this.envI = (this.envI + d + BC.ENVS.length) % BC.ENVS.length; this.amb = new BC.Ambient(BC.ENVS[this.envI]); BC.opts.arena = this.envI; BC.saveOpts(); }
     main() {
       UI.clear();
       const has = !!BC.save.get('auto'), app = this.offer = BC.app.offer(), fresh = this.fresh = BC.app.fresh, rows = 5 + (has ? 1 : 0) + (app ? 1 : 0) + (fresh ? 1 : 0);
@@ -364,12 +374,13 @@
     }
     solo() {
       const P = this.cpu, L = BC.ai.LEVELS, SIDES = ['SUN, MOVES FIRST', 'MOON', 'RANDOM'];
+      const keep = () => BC.save.put('solo', P);   // every change is remembered at once, not only on BEGIN
       UI.open({ title: 'ONE PLAYER', w: 520, y: 226, shade: false, cover: true, note: () => L[P.level - 1].tag, items: [
-        { label: 'OPPONENT', value: () => P.level + ' ' + L[P.level - 1].name, adj: (d) => { P.level = BC.clamp(P.level + d, 1, L.length); } },
-        { label: 'YOU PLAY', value: () => SIDES[P.side], adj: (d) => { P.side = (P.side + d + 3) % 3; } },
-        { label: 'COACH', value: () => COACH[P.coach], adj: (d) => { P.coach = (P.coach + d + 3) % 3; } },
-        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => { this.envI = (this.envI + d + BC.ENVS.length) % BC.ENVS.length; this.amb = new BC.Ambient(BC.ENVS[this.envI]); } },
-        { label: 'CLOCK', value: () => (CLOCKS[P.clockI] ? CLOCKS[P.clockI] + ' MIN EACH' : 'NO CLOCK'), adj: (d) => { P.clockI = (P.clockI + d + CLOCKS.length) % CLOCKS.length; } },
+        { label: 'OPPONENT', value: () => P.level + ' ' + L[P.level - 1].name, adj: (d) => { P.level = BC.clamp(P.level + d, 1, L.length); keep(); } },
+        { label: 'YOU PLAY', value: () => SIDES[P.side], adj: (d) => { P.side = (P.side + d + 3) % 3; keep(); } },
+        { label: 'COACH', value: () => COACH[P.coach], adj: (d) => { P.coach = (P.coach + d + 3) % 3; keep(); } },
+        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => this.arena(d) },
+        { label: 'CLOCK', value: () => (CLOCKS[P.clockI] ? CLOCKS[P.clockI] + ' MIN EACH' : 'NO CLOCK'), adj: (d) => { P.clockI = (P.clockI + d + CLOCKS.length) % CLOCKS.length; keep(); } },
         { label: 'BEGIN', act: () => {
           BC.save.put('solo', P); UI.clear();
           const you = P.side === 2 ? (Math.random() * 2) | 0 : P.side;
@@ -380,8 +391,8 @@
     }
     setup() {
       UI.open({ title: 'NEW GAME', w: 470, y: 300, shade: false, cover: true, items: [
-        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => { this.envI = (this.envI + d + BC.ENVS.length) % BC.ENVS.length; this.amb = new BC.Ambient(BC.ENVS[this.envI]); } },
-        { label: 'CLOCK', value: () => (CLOCKS[this.clockI] ? CLOCKS[this.clockI] + ' MIN EACH' : 'NO CLOCK'), adj: (d) => { this.clockI = (this.clockI + d + CLOCKS.length) % CLOCKS.length; } },
+        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => this.arena(d) },
+        { label: 'CLOCK', value: () => (CLOCKS[this.clockI] ? CLOCKS[this.clockI] + ' MIN EACH' : 'NO CLOCK'), adj: (d) => { this.clockI = (this.clockI + d + CLOCKS.length) % CLOCKS.length; BC.opts.clock = this.clockI; BC.saveOpts(); } },
         { label: 'MOVE HINTS', value: () => onOff(BC.opts.hints), adj: () => { BC.opts.hints = !BC.opts.hints; BC.saveOpts(); } },
         { label: 'BEGIN', act: () => { UI.clear(); BC.go(new BC.Game({ env: this.envI, clock: CLOCKS[this.clockI] })); } },
         { label: 'BACK', act: UI.close },

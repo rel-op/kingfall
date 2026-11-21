@@ -1,0 +1,13 @@
+[
+  { "wait": 2000 },
+  { "eval": "window.P = () => { const t = BC.scene, o = BC.opts; return JSON.stringify({ solo: t.cpu, arena: BC.ENVS[t.envI].key, clock2: t.clockI, opts: { hints: o.hints, fights: o.fights, orient: o.orient, music: o.music, sfx: o.sfx, bloom: o.bloom } }); }; 'first visit, defaults: ' + P()" },
+  { "eval": "(() => { const t = BC.scene; t.solo(); const it = (l) => BC.ui.stack[BC.ui.stack.length - 1].items.find((x) => x.label === l); it('OPPONENT').adj(1); it('OPPONENT').adj(1); it('YOU PLAY').adj(1); it('COACH').adj(1); it('ARENA').adj(-1); it('CLOCK').adj(1); BC.ui.close(); t.setup(); it('CLOCK').adj(1); BC.ui.close(); BC.ui.options(); it('MOVE HINTS').adj(1); it('FIGHT SCENES').adj(1); it('BOARD VIEW').adj(1); it('MUSIC').adj(-1); it('SOUND').adj(-1); it('GLOW').adj(1); BC.ui.close(); return 'changed everything, never pressed BEGIN: ' + P(); })()" },
+  { "reload": true },
+  { "wait": 1500 },
+  { "eval": "window.P = () => { const t = BC.scene, o = BC.opts; return JSON.stringify({ solo: t.cpu, arena: BC.ENVS[t.envI].key, clock2: t.clockI, opts: { hints: o.hints, fights: o.fights, orient: o.orient, music: o.music, sfx: o.sfx, bloom: o.bloom } }); }; 'after reload: ' + P()" },
+  { "eval": "(() => { BC.ui.clear(); const g = new BC.Game({ env: 0, ai: { side: 1, level: 3, coach: 1 } }); BC.go(g); BC.ui.pause(g); BC.ui.stack[BC.ui.stack.length - 1].items.find((x) => x.label === 'COACH').adj(-1); return 'coach switched off from the pause menu, saved: ' + localStorage.getItem('kingfall.solo'); })()" },
+  { "eval": "localStorage.setItem('kingfall.solo', JSON.stringify({ level: 5, side: 1, coach: 2, clockI: 2 })); localStorage.setItem('kingfall.opts', JSON.stringify({ hints: false, music: 0.2, arena: 99 })); 'wrote choices as an older version saved them, with FULL coach and a bad arena'" },
+  { "reload": true },
+  { "wait": 1500 },
+  { "eval": "'older save read back: ' + JSON.stringify({ solo: BC.scene.cpu, arena: BC.ENVS[BC.scene.envI].key, hints: BC.opts.hints, music: BC.opts.music, fights: BC.opts.fights })" }
+]

@@ -45,10 +45,11 @@ Press A or click during a fight to fast-forward it.
   banners and flags in the wind, brazier flames, the koi swimming round their pond, lava, candle and window light.
 - One player: sixteen computer opponents, from the Stable Hand, who has just learned the moves, up to
   the Crown at full strength. Play either army.
-- A coach for one-player games, off, tips only, or full. A tip shows first which piece to move, then
+- A coach for one-player games: off, tips only (the default), or full. A tip shows first which piece to move, then
   where. The full coach also rings your pieces that are in danger, shows who is ahead, and stops you
   before a move that throws the game away, pointing at the reply it fears. After the game it gives
   your accuracy, counts slips, mistakes and blunders, and lets you replay the worst moments.
+- Every choice is remembered on the device: options, opponent, side, coach, arena and clocks.
 - Move hints (on or off), an optional chess clock, three save slots plus an autosave,
   take-back, a classic bottom-versus-top board view for purists, and three fight settings
   (full, quick, off).
@@ -114,6 +115,7 @@ uv run tools/draw_fx.py --preview         # rebuild effect sprites, write out/fx
 node tools/pack-audio.mjs                 # rebuild assets/sfx.js
 node tools/trim-music.mjs                 # after generating music: cut trailing silence
 node tools/drive.mjs "serve:index.html" tests/arena.json   # the fourth arena, and one theme handing over to the other
+node tools/drive.mjs "serve:index.html" tests/prefs.json   # defaults, and every choice still there after a reload
 uv run tools/make_icons.py                # rebuild the app icons
 node tools/make-sw.mjs                    # rebuild sw.js (the offline file list) after changing game files
 MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/touch.json   # a phone-sized game played by touch
