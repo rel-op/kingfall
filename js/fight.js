@@ -25,6 +25,8 @@
     sfx('zoom', 0.7); sfx('taiko', 0.9);
     const mid = pos(Vc), c0 = { x: G.cam.x, y: G.cam.y, z: G.cam.z };
     const c1 = { x: mid.x - dir * 34 * mid.s, y: mid.y - 46 * mid.s, z: Math.min(2.5, 1.95 / mid.s) };
+    // keep the zoomed view inside the painted backdrop
+    c1.x = BC.clamp(c1.x, 480 / c1.z - 20, 980 - 480 / c1.z); c1.y = BC.clamp(c1.y, 270 / c1.z - 10, 550 - 270 / c1.z);
     const camTo = (a, b, d) => G.tween(d, (k) => { G.cam.x = BC.lerp(a.x, b.x, k); G.cam.y = BC.lerp(a.y, b.y, k); G.cam.z = BC.lerp(a.z, b.z, k); G.dim = BC.lerp(a === c0 ? 0 : 0.62, b === c0 ? 0 : 0.62, k); G.bars = G.dim / 0.62; G.hudK = 1 - G.bars; }, BC.ease.io);
     await camTo(c0, c1, 0.3);
     await G.until(() => Vc.m === 7);
@@ -33,7 +35,7 @@
     const hit = (pow, d) => {
       d = d || dir; G.combo++;
       const c = chest(Vc);
-      Vc.anim = 'hit'; Vc.at = 0; Vc.white = 1;
+      Vc.anim = 'hit'; Vc.at = 0; Vc.white = Math.min(1, 0.35 + pow * 0.5);
       G.freeze = 0.05 + 0.035 * pow; G.shake(3 + 3.5 * pow);
       fx.sparks(c.x, c.y, 10 + pow * 8, ['#ffffff', T.glow, T.trim], 170 + pow * 60, 0.35);
       fx.ring(c.x, c.y, 22 + pow * 12, '#ffffff', 0.22, 0.9);

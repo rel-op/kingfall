@@ -120,6 +120,7 @@
         if (it.k === 'arc') {
           const sw = Math.min(1, k * 3.2), ae = it.a0 + (it.a1 - it.a0) * sw, ccw = it.a1 < it.a0;
           const as = it.a0 + (it.a1 - it.a0) * Math.max(0, k * 1.6 - 0.6);
+          if (Math.abs(ae - as) < 0.25) continue;
           const mid = (as + ae) / 2, th = it.th || 0.2;
           const g = ctx.createRadialGradient(it.x, it.y, it.r * 0.55, it.x, it.y, it.r);
           g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.6, it.col); g.addColorStop(1, '#ffffff');

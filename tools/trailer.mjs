@@ -16,7 +16,7 @@ const done = 'BC.scene.mode !== "anim"';
 const SHOTS = [
   { name: '01-title', query: '', n: 215, at: { 0: 'BC.fadeTo(1)' } },
   { name: '02-alive', query: 'game&env=0', n: 330,
-    at: { 12: cap('EVERY PIECE COMES ALIVE', 'STONE CHESSMEN TRANSFORM INTO WARRIORS', 4.6), 22: act('e2'), 92: act('e4'), 168: act('g8'), 238: act('f6') } },
+    at: { 12: cap('EVERY PIECE COMES ALIVE', 'STONE CHESSMEN TRANSFORM INTO WARRIORS', 4.6), 22: act('e2'), 92: act('e4'), 168: act('b8'), 238: act('c6') } },
   { name: '03-pawn', query: 'game&env=0&' + fen('r1bqkbnr/pppp1ppp/8/4p3/3nP3/2P2N2/PP3PPP/RNBQKB1R w KQkq - 0 5'), n: 620, until: done, min: 120, tail: 26,
     at: { 6: cap('FIGHTING-GAME TAKEDOWNS', 'EVERY CAPTURE IS A DUEL', 3.4), 14: act('c3'), 52: act('d4') } },
   { name: '04-rook', query: 'game&env=1&' + fen('r3k2r/ppp2ppp/2n5/3b4/8/2N5/PPP2PPP/3RK2R w Kkq - 0 12'), n: 700, until: done, min: 120, tail: 26,
@@ -27,7 +27,7 @@ const SHOTS = [
     at: { 6: cap('FROSTMOON ABBEY', '', 2.8), 14: act('b3'), 52: act('d5') } },
   { name: '07-king', query: 'game&env=2&' + fen('6k1/5ppp/8/8/8/2n1P3/3K1PP1/8 w - - 0 40'), n: 700, until: done, min: 120, tail: 26,
     at: { 6: cap('TWO PLAYERS, ONE SCREEN', 'MOUSE OR GAMEPAD - MOVE HINTS - SAVE GAMES', 3.6), 14: act('d2'), 52: act('c3') } },
-  { name: '08-mate', query: 'game&env=0&' + fen('6rk/6pp/8/6N1/8/8/5PPP/6K1 w - - 0 30'), n: 900, until: 'BC.scene.mode === "over"', min: 200, tail: 170,
+  { name: '08-mate', query: 'game&env=0&' + fen('r1bq2rk/pp4pp/2n5/6N1/2B5/8/PPP2PPP/R1BQ2K1 w - - 0 15'), n: 900, until: 'BC.scene.mode === "over"', min: 200, tail: 170,
     at: { 0: 'BC.trailer = true', 14: act('g5'), 52: act('f7') } },
   { name: '09-end', query: '', n: 200, at: { 0: 'BC.fadeTo(1)', 150: 'BC.fadeOut = 1.4' } },
 ];
@@ -57,7 +57,7 @@ for (const s of SHOTS) {
   if (!existsSync(dir)) { console.log('missing shot', s.name, '- not assembling'); process.exit(0); }
   const n = readdirSync(dir).filter((f) => f.endsWith('.jpg')).length;
   const mp4 = join(out, s.name + '.mp4');
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', '60', '-i', join(dir, 'f%05d.jpg'), '-c:v', 'libx264', '-preset', 'slow', '-crf', '15', '-pix_fmt', 'yuv420p', mp4]);
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', '60', '-i', join(dir, 'f%05d.jpg'), '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-pix_fmt', 'yuv420p', mp4]);
   for (const e of JSON.parse(readFileSync(join(dir, 'audio.json'), 'utf8'))) if (e.name && e.t <= n / 60) events.push({ t: t + e.t, name: e.name, vol: e.vol });
   list.push(`file '${mp4}'`);
   console.log(s.name, n, 'frames', (n / 60).toFixed(1) + 's');

@@ -35,12 +35,13 @@
       jobs.push(loadImg('face_' + team + '_' + PIECE[k], `assets/portraits/${team}_${PIECE[k]}.png`));
     }
     for (const e of BC.ENVS) { jobs.push(loadImg('bg_' + e.key, `assets/bg/${e.key}_board.png`)); jobs.push(loadImg('stage_' + e.key, `assets/bg/${e.key}_battle.png`)); }
+    jobs.push(loadImg('logo', 'assets/logo.png'));
     return Promise.all(jobs);
   };
 
   // ---------- projection: a board lying flat, seen from the long side ----------
   // Board space: u runs left to right (0..8), v runs far to near (0..8).
-  const V = BC.view = { cx: 480, yNear: 518, yFar: 158, sFar: 0.8, TW: 64, orient: 'side' };
+  const V = BC.view = { cx: 480, yNear: 506, yFar: 150, sFar: 0.8, TW: 64, orient: 'side' };
   const kk = () => 1 / V.sFar - 1;
   const yh = () => (V.yFar - V.yNear * V.sFar) / (1 - V.sFar);
   V.sAt = (v) => 1 / (1 + kk() * (8 - v) / 8);
@@ -66,19 +67,19 @@
     {
       key: 'sakura', name: 'SAKURA KEEP', tag: 'SPRING MORNING AT THE CASTLE',
       light: ['#f3c2c6', '#e2a1ab', '#fde0dd', '#d48b98'], dark: ['#4e9c84', '#3b7f6e', '#6cb89c', '#2f6a5e'],
-      frame: ['#b3262e', '#e2553f', '#6f1320', '#ffd23e'], sky: '#ffe9d2', shade: 'rgba(40,10,40,0.34)',
+      frame: ['#b3262e', '#e2553f', '#6f1320', '#ffd23e'], sky: '#ffe9d2', shade: 'rgba(40,10,40,0.16)',
       grade: ['rgba(255,214,170,0.10)', 'rgba(60,20,70,0.30)'], accent: '#ff9ec0',
     },
     {
       key: 'ember', name: 'EMBER FORGE', tag: 'NIGHT ABOVE THE VOLCANO',
       light: ['#dd9550', '#c2713a', '#f6bd72', '#a85a30'], dark: ['#6a2636', '#521a2a', '#853445', '#3e1220'],
-      frame: ['#2a1c26', '#57404c', '#120a12', '#ff8a2a'], sky: '#ff7a30', shade: 'rgba(0,0,0,0.5)',
+      frame: ['#2a1c26', '#57404c', '#120a12', '#ff8a2a'], sky: '#ff7a30', shade: 'rgba(0,0,0,0.1)',
       grade: ['rgba(255,110,30,0.13)', 'rgba(20,0,10,0.46)'], accent: '#ffb347',
     },
     {
       key: 'frost', name: 'FROSTMOON ABBEY', tag: 'MIDNIGHT ON THE FROZEN LAKE',
       light: ['#b7dcf0', '#93c2e2', '#e2f6ff', '#7aaed4'], dark: ['#4a6cbc', '#3855a0', '#6a8cd8', '#2b4386'],
-      frame: ['#c9d8ec', '#ffffff', '#7f93b8', '#48e8d8'], sky: '#9fe8ff', shade: 'rgba(4,8,40,0.46)',
+      frame: ['#c9d8ec', '#ffffff', '#7f93b8', '#48e8d8'], sky: '#9fe8ff', shade: 'rgba(4,8,40,0.12)',
       grade: ['rgba(120,170,255,0.12)', 'rgba(6,8,50,0.44)'], accent: '#b8fff6',
     },
   ];
@@ -221,6 +222,20 @@
           ctx.closePath(); ctx.fill();
         }
       }
+      ctx.restore();
+    }
+    // Flickering firelight painted onto the backdrop's own lanterns and braziers (backdrop pixel positions).
+    fires(ctx) {
+      const L = { sakura: [[118, 184, 26], [280, 141, 18], [428, 141, 18], [629, 141, 18], [763, 141, 18], [913, 376, 26]],
+        ember: [[278, 96, 46], [689, 96, 46], [100, 312, 54], [873, 312, 54], [95, 150, 60], [845, 150, 40]] }[this.env.key];
+      if (!L) return;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      L.forEach(([x, y, r], i) => {
+        const wx = -24 + x * 1.05, wy = -14 + y * 1.05, f = 0.75 + 0.25 * Math.sin(this.t * (7 + i) + i * 2) * Math.sin(this.t * 3.1 + i);
+        const g = ctx.createRadialGradient(wx, wy, 0, wx, wy, r * f);
+        g.addColorStop(0, this.env.key === 'ember' ? 'rgba(255,170,60,0.55)' : 'rgba(255,220,150,0.5)'); g.addColorStop(1, 'rgba(255,120,30,0)');
+        ctx.fillStyle = g; ctx.fillRect(wx - r, wy - r, r * 2, r * 2);
+      });
       ctx.restore();
     }
     draw(ctx, front) {

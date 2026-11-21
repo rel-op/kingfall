@@ -286,12 +286,13 @@
       if (bg) ctx.drawImage(bg, -24, -14, 1008, 568);
       else { const g = ctx.createLinearGradient(0, 0, 0, 540); g.addColorStop(0, env.sky); g.addColorStop(1, '#201428'); ctx.fillStyle = g; ctx.fillRect(-30, -20, 1020, 580); }
       ctx.fillStyle = env.shade; ctx.fillRect(-30, -20, 1020, 580);
+      this.amb.fires(ctx);
       this.amb.draw(ctx, false);
       ctx.drawImage(BC.boardCanvas(env), 0, 0, 960, 540);
       // rank and file labels on the frame
       if (!this.fight) for (let i = 0; i < 8; i++) {
         const side = V.orient === 'side';
-        const a = V.project(i + 0.5, 8.27), b = V.project(-0.27, i + 0.5);
+        const a = V.project(i + 0.5, -0.25), b = V.project(-0.27, i + 0.5);
         BC.text(ctx, side ? String(i + 1) : 'ABCDEFGH'[i], a.x, a.y - 3, { a: 'c', c: env.frame[3], o: env.frame[2] });
         BC.text(ctx, side ? 'ABCDEFGH'[i] : String(8 - i), b.x, b.y - 3, { a: 'c', c: env.frame[3], o: env.frame[2] });
       }

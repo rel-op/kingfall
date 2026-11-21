@@ -1,0 +1,4 @@
+[
+  { "wait": 1200 },
+  { "eval": "(async () => { BC.manual = true; BC.trailer = true; let n = 0, caps = 0; for (let i = 0; i < 400000 && n < 400; i++) { BC.tick(1 / 20); await 0; const g = BC.scene; if (g.mode === 'over') break; if (g.mode === 'promo') { g.promoPick(); continue; } if (g.mode === 'play') { const L = g.legal, C = L.filter((m) => m.cap); const m = C.length && Math.random() < 0.8 ? C[(Math.random() * C.length) | 0] : L[(Math.random() * L.length) | 0]; if (m.cap) caps++; g.play(m); n++; } } const g = BC.scene; return n + ' moves, ' + caps + ' captures, mode ' + g.mode + ', result ' + JSON.stringify(g.result) + ', pieces ' + g.pv.filter((p) => !p.hidden).length + ', board ' + g.S.board.filter(Boolean).length; })()" }
+]

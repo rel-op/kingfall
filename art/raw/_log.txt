@@ -25,3 +25,13 @@ ok bishop_move 60s
 ok queen_attack 66s
 ok queen_morph 69s
 ok queen_idlehit 69s
+ok queen_move 61s
+ok bg_sakura_board 45s
+ok bg_ember_board 49s
+ok bg_frost_board 41s
+ok bg_sakura_battle 60s
+ok bg_ember_battle 62s
+ok bg_frost_battle 62s
+done
+ok logo 35s
+done

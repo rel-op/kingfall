@@ -259,7 +259,7 @@
     main() {
       UI.clear();
       const has = !!BC.save.get('auto');
-      UI.open({ title: '', sticky: true, shade: false, y: 318, w: 330, bare: true, items: [
+      UI.open({ title: '', sticky: true, shade: false, y: 336, w: 330, bare: true, items: [
         ...(has ? [{ label: 'CONTINUE', act: () => loadSlot('auto') }] : []),
         { label: 'NEW GAME', act: () => this.setup() },
         { label: 'LOAD GAME', act: () => UI.slots('load') },
@@ -306,14 +306,21 @@
       ctx.fillStyle = vg; ctx.fillRect(0, 0, 960, 540);
       BC.bloom(ctx);
       const bob = Math.sin(t * 1.6) * 3;
-      ctx.save(); ctx.translate(480, 96 + bob);
-      BC.text(ctx, 'KINGFALL', 4, 6, { a: 'c', s: 14, c: '#16081c' });
-      BC.text(ctx, 'KINGFALL', 0, 0, { a: 'c', s: 14, g: ['#fff8d0', '#ff5a2a'], o: '#3a0d18' });
-      ctx.restore();
-      const sh = (t * 0.5) % 3;
-      if (sh < 1) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 * Math.sin(sh * Math.PI); ctx.fillStyle = '#fff'; ctx.beginPath(); const x = 180 + sh * 640; ctx.moveTo(x, 90); ctx.lineTo(x + 26, 90); ctx.lineTo(x - 14, 206); ctx.lineTo(x - 40, 206); ctx.fill(); ctx.restore(); }
-      BC.text(ctx, 'PIXEL BATTLE CHESS', 480, 214 + bob, { a: 'c', s: 3, c: '#ffe9a0', o: '#2a0d16' });
-      ctx.drawImage(BC.stamp('王'), 0, 0, 30, 30, 786, 92 + bob, 60, 60);
+      const logo = BC.assets.img.logo;
+      if (logo) {
+        const lw = 600, lh = logo.height * lw / logo.width;
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.save(); ctx.shadowColor = 'rgba(8,2,16,0.8)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
+        ctx.drawImage(logo, 480 - lw / 2, 118 - lh / 2 + bob, lw, lh);
+        ctx.restore();
+      } else {
+        ctx.save(); ctx.translate(480, 96 + bob);
+        BC.text(ctx, 'KINGFALL', 4, 6, { a: 'c', s: 14, c: '#16081c' });
+        BC.text(ctx, 'KINGFALL', 0, 0, { a: 'c', s: 14, g: ['#fff8d0', '#ff5a2a'], o: '#3a0d18' });
+        ctx.restore();
+        ctx.drawImage(BC.stamp('王'), 0, 0, 30, 30, 786, 92 + bob, 60, 60);
+      }
+      BC.text(ctx, 'PIXEL BATTLE CHESS', 480, 240 + bob, { a: 'c', s: 3, c: '#ffe9a0', o: '#2a0d16' });
       if (UI.stack.length > 1 && UI.stack[1].title === 'NEW GAME') {
         BC.text(ctx, env.name, 480, 258, { a: 'c', s: 4, g: ['#ffffff', env.accent], o: '#05030a' });
         BC.text(ctx, env.tag, 480, 290, { a: 'c', s: 1, c: '#e8dcf4', o: '#05030a' });

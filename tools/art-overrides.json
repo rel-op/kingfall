@@ -1,0 +1,7 @@
+{
+  "pawn_move": { "k": 0.85 },
+  "queen_move": { "k": 0.92 },
+  "knight_move": { "k": 0.8 },
+  "bishop_attack": { "k": 0.94 },
+  "queen_attack": { "k": 0.94 }
+}

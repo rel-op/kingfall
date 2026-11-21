@@ -63,6 +63,7 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
 
 ```bash
 node tests/perft.js                       # rules check: move counts against known totals
+node tools/drive.mjs "index.html?game&manual" tests/soak.json   # plays a whole random game, fights included
 uv run tools/process_art.py               # rebuild sprites from art/raw
 node tools/pack-audio.mjs                 # rebuild assets/sfx.js
 node tools/trailer.mjs                    # re-record trailer.mp4
