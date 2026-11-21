@@ -1,0 +1,21 @@
+[
+  { "wait": 1800 },
+  { "eval": "window.T = { item: (label) => { const m = BC.ui.stack[BC.ui.stack.length - 1], b = m.box(), X = m.xf(), i = m.items.findIndex((x) => (typeof x.label === 'function' ? x.label() : x.label) === label); return [(b.x + b.w / 2) * X.k + X.dx, (b.y + m.head + i * 28 + 10) * X.k + X.dy]; }, sq: (name) => { const uv = BC.view.sqUV(BC.chess.sqFromName(name)), p = BC.view.project(uv.u, uv.v); return [p.x, p.y]; }, btn: (id) => { const q = BC.ui.buttons(BC.scene).find((x) => x.id === id); return [q.x + q.w / 2, q.y + q.h / 2]; } }; 'helpers ready'" },
+  { "tap": "T.item('ONE PLAYER')" },
+  { "shot": "out/m-solo.png" },
+  { "tap": "T.item('BEGIN')", "after": 1800 },
+  { "eval": "JSON.stringify({ scene: BC.scene.constructor.name, ai: BC.scene.ai, touch: BC.touch, mode: BC.scene.mode })" },
+  { "tap": "T.sq('e2')" },
+  { "shot": "out/m-select.png" },
+  { "tap": "T.sq('e4')", "after": 5000 },
+  { "eval": "JSON.stringify({ line: BC.scene.line, mode: BC.scene.mode, advice: !!BC.scene.advice })" },
+  { "tap": "T.btn('tip')" },
+  { "tap": "T.btn('tip')" },
+  { "eval": "'tip stage ' + BC.scene.tip" },
+  { "shot": "out/m-tip.png" },
+  { "tap": "T.btn('menu')" },
+  { "eval": "'menu open: ' + (BC.ui.stack[0] && BC.ui.stack[0].title)" },
+  { "shot": "out/m-pause.png" },
+  { "tap": "T.item('RESUME')" },
+  { "eval": "'menus left: ' + BC.ui.stack.length" }
+]

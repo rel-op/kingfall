@@ -20,7 +20,21 @@
   class Menu {
     constructor(o) { Object.assign(this, { title: '', items: [], w: 380, i: 0, age: 0 }, o); while (this.items[this.i] && this.items[this.i].off && this.items[this.i].off()) this.i++; }
     get head() { return this.title ? 58 : 16; }
-    get h() { return this.head + 16 + this.items.length * 28 + (this.note ? 22 : 0); }
+    get h() { const n = this.lines().length; return this.head + 16 + this.items.length * 28 + (n ? n * 18 + 6 : 0); }
+    // the note under the items, wrapped to the box
+    lines() {
+      const note = typeof this.note === 'function' ? this.note() : this.note, out = [];
+      for (const word of note ? String(note).split(' ') : []) {
+        const cur = out[out.length - 1];
+        if (cur !== undefined && BC.textW(cur + ' ' + word, 2) <= this.w - 28) out[out.length - 1] = cur + ' ' + word; else out.push(word);
+      }
+      return out;
+    }
+    // On a phone-sized screen the whole menu is drawn larger, kept inside the picture: screen = menu * k + d.
+    xf() {
+      const b = this.box(), k = BC.compact ? Math.min(1.3, 952 / b.w, 532 / b.h) : 1, w = b.w * k, h = b.h * k;
+      return { k, dx: BC.clamp(b.x + b.w / 2 - w / 2, 4, 956 - w) - b.x * k, dy: BC.clamp(b.y + b.h / 2 - h / 2, 4, 536 - h) - b.y * k };
+    }
     box() { const h = this.h; return { x: this.x !== undefined ? this.x : 480 - this.w / 2, y: this.y !== undefined ? this.y : 270 - h / 2, w: this.w, h }; }
     move(d) {
       const n = this.items.length;
@@ -35,6 +49,7 @@
     }
     input(ev) {
       const b = this.box();
+      if (ev.x !== undefined) { const T = this.xf(); ev = Object.assign({}, ev, { x: (ev.x - T.dx) / T.k, y: (ev.y - T.dy) / T.k }); }
       if (ev.type === 'dir') { if (ev.dy) this.move(ev.dy); else if (ev.dx) this.fire(this.items[this.i], ev.dx); }
       else if (ev.type === 'move' || (ev.type === 'ok' && ev.mouse)) {
         const k = Math.floor((ev.y - (b.y + this.head)) / 28);
@@ -50,7 +65,8 @@
       this.age += 1 / 60;
       const b = this.box(), k = BC.ease.out(Math.min(1, this.age / 0.18)), cx = b.x + b.w / 2;
       if (this.shade !== false) { ctx.fillStyle = `rgba(6,3,14,${0.6 * k})`; ctx.fillRect(0, 0, 960, 540); }
-      ctx.save(); ctx.translate(0, (1 - k) * 18); ctx.globalAlpha = k;
+      const T = this.xf();
+      ctx.save(); ctx.translate(T.dx, T.dy + (1 - k) * 18); ctx.scale(T.k, T.k); ctx.globalAlpha = k;
       panel(ctx, b.x, b.y, b.w, b.h, '#b3262e', this.cover ? 0.95 : undefined);
       if (this.title) {
         BC.text(ctx, this.title, cx, b.y + 16, { a: 'c', s: 3, g: GOLD, o: '#2a0d16' });
@@ -69,8 +85,8 @@
         if (it.value) { BC.text(ctx, lab, b.x + 36, y + 1, { s: 2, c: col, sh: '#05030a' }); BC.text(ctx, '< ' + it.value() + ' >', b.x + b.w - 22, y + 1, { s: 2, c: sel ? '#ffd23e' : '#bfa9d6', a: 'r', sh: '#05030a' }); }
         else BC.text(ctx, lab, it.small ? b.x + 36 : cx, y + 1, { s: 2, c: col, a: it.small ? 'l' : 'c', sh: '#05030a' });
       });
-      const note = typeof this.note === 'function' ? this.note() : this.note;
-      if (note) BC.text(ctx, note, cx, b.y + b.h - 22, { a: 'c', s: 1, c: '#9a8cb0' });
+      const L = this.lines();
+      L.forEach((str, n) => BC.text(ctx, str, cx, b.y + b.h - 8 - 18 * (L.length - n), { a: 'c', s: 2, c: '#b9a9d0', sh: '#05030a' }));
       ctx.restore();
     }
   }
@@ -127,7 +143,7 @@
   UI.gameOver = function (game) {
     const r = game.result;
     const what = { checkmate: 'CHECKMATE', stalemate: 'STALEMATE', material: 'DRAW', fifty: 'DRAW', repetition: 'DRAW', time: 'TIME UP' }[r.type];
-    const note = r.winner >= 0 ? (game.ai ? (r.winner === game.ai.side ? BC.ai.LEVELS[game.ai.level - 1].name + ' WINS' : 'YOU WIN') : BC.TEAMS[r.winner].full + ' WINS') : { stalemate: 'NO LEGAL MOVES', material: 'NOT ENOUGH PIECES TO MATE', fifty: 'FIFTY MOVES WITHOUT PROGRESS', repetition: 'SAME POSITION THREE TIMES' }[r.type];
+    const note = r.winner >= 0 ? (game.ai ? (r.winner === game.ai.side ? BC.ai.LEVELS[game.ai.level - 1].name + ' WINS' : 'YOU WIN') : BC.TEAMS[r.winner].full + ' WINS') : { stalemate: 'NO LEGAL MOVES', material: 'NOT ENOUGH PIECES TO MATE', fifty: 'FIFTY MOVES, NO PROGRESS', repetition: 'SAME POSITION THREE TIMES' }[r.type];
     game.banner = { str: what, sub: note, team: r.winner >= 0 ? r.winner : 0, age: 0, life: 3.4 };
     game.wait(2.6).then(() => {
       if (BC.scene !== game || BC.trailer) return;
@@ -160,9 +176,10 @@
     const hit = to < 0 ? null : to === m.to ? (m.promo || m.p) : S.board[to] && S.board[to].c === S.turn && to !== m.from ? S.board[to].t : null;
     const why = p.mate < 0 ? 'THAT WALKS INTO CHECKMATE' : missed ? 'YOU HAVE A CHECKMATE HERE. LOOK AGAIN' : hit ? 'THEY CAN TAKE YOUR ' + BC.PIECE_NAMES[hit] : 'THERE IS A MUCH BETTER MOVE HERE';
     if (from >= 0 && !missed) game.warn = { from, to };
+    const far = to >= 0 && V.project(V.sqUV(to).u, V.sqUV(to).v).x < 480;
     const done = (f) => () => { UI.close(); game.warn = null; f(); };
     BC.audio.sfx('ui_back', 0.8);
-    UI.open({ title: BC.ai.win(b.cp) - BC.ai.win(p.cp) >= 15 ? 'BLUNDER?' : 'CAREFUL', note: why, w: 250, x: S.turn === 0 ? 4 : 706, y: 250, shade: false, sticky: true, cover: true, onBack: done(() => game.deselect()), items: [
+    UI.open({ title: BC.ai.win(b.cp) - BC.ai.win(p.cp) >= 15 ? 'BLUNDER?' : 'CAREFUL', note: why, w: 270, x: far ? 686 : 4, y: 240, shade: false, sticky: true, cover: true, onBack: done(() => game.deselect()), items: [
       { label: 'TAKE IT BACK', act: done(() => game.deselect()) },
       { label: 'SHOW A BETTER ONE', act: done(() => { game.deselect(); game.tip = 2; game.tips++; }) },
       { label: 'PLAY IT ANYWAY', act: done(() => game.play(m)) },
@@ -205,7 +222,7 @@
       }
       ctx.restore();
       ctx.fillStyle = T.trim; ctx.fillRect(px, py + ph, pw, 1);
-      if (G.ai) BC.text(ctx, cpu ? 'CPU LEVEL ' + G.ai.level : 'YOU', team === 0 ? px + 5 : px + pw - 5, py + 5, { s: 1, c: '#fff', a: team === 0 ? 'l' : 'r', o: '#05030a' });
+      if (G.ai) BC.text(ctx, cpu ? 'LV ' + G.ai.level : 'YOU', team === 0 ? px + 5 : px + pw - 5, py + 5, { s: 2, c: '#fff', a: team === 0 ? 'l' : 'r', o: '#05030a' });
       BC.text(ctx, cpu && !sel ? BC.ai.LEVELS[G.ai.level - 1].name : BC.PIECE_NAMES[ty], x + w / 2, y + 160, { a: 'c', s: 2, c: T.glow, sh: '#05030a' });
       if (G.clock) {
         const low = G.clock[team] < 10 && active;
@@ -237,11 +254,24 @@
       ctx.fillStyle = '#ffffff'; ctx.fillRect(479, 37, 2, 7);
     }
     ctx.restore();
-    if (G.mode === 'play') {
+    if (G.mode === 'play' && !BC.touch) {
       ctx.globalAlpha = 0.7 * k;
       BC.text(ctx, 'CLICK / (A) SELECT    (B) CANCEL    [H] HINTS ' + onOff(BC.opts.hints) + (G.ai && G.ai.coach ? '    [T] TIP' : '') + '    [ESC] MENU', 480, 529, { a: 'c', s: 1, c: '#e8dcf4', o: '#05030a' });
       ctx.globalAlpha = 1;
     }
+    for (const q of UI.buttons(G)) {
+      ctx.globalAlpha = k;
+      panel(ctx, q.x, q.y, q.w, q.h, q.id === 'tip' ? '#3f9a66' : '#6a4a8c', 0.86);
+      BC.text(ctx, q.label, q.x + q.w / 2, q.y + q.h / 2 - 7, { a: 'c', s: 2, c: '#fff', sh: '#05030a' });
+      ctx.globalAlpha = 1;
+    }
+  };
+  // Buttons in the corner, for a finger or a mouse with no keyboard to hand. Bigger once a finger has been seen.
+  UI.buttons = function (G) {
+    if (G.mode !== 'play' && G.mode !== 'think') return [];
+    const w = BC.touch ? 88 : 72, h = BC.touch ? 46 : 26, y = 532 - h, out = [{ id: 'menu', label: 'MENU', x: 8, y, w, h }];
+    if (G.ai && G.ai.coach && G.mode === 'play') out.push({ id: 'tip', label: 'TIP', x: 16 + w, y, w, h });
+    return out;
   };
   UI.banner = function (ctx, b) {
     const k = b.age / b.life, T = BC.TEAMS[b.team], inn = BC.ease.out(Math.min(1, b.age / 0.16)), a = k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1;
@@ -305,8 +335,8 @@
     constructor() { this.t = 0; this.envI = 0; this.clockI = 3; this.cpu = Object.assign({ level: 3, side: 0, coach: 2, clockI: 0 }, BC.save.get('solo') || {}); this.amb = new BC.Ambient(BC.ENVS[0]); BC.audio.music('title'); this.main(); }
     main() {
       UI.clear();
-      const has = !!BC.save.get('auto');
-      UI.open({ title: '', sticky: true, shade: false, y: has ? 318 : 336, w: 330, bare: true, items: [
+      const has = !!BC.save.get('auto'), app = this.offer = BC.app.offer(), rows = 5 + (has ? 1 : 0) + (app ? 1 : 0);
+      UI.open({ title: '', sticky: true, shade: false, y: 518 - 32 - rows * 28, w: 330, bare: true, items: [
         ...(has ? [{ label: 'CONTINUE', act: () => loadSlot('auto') }] : []),
         { label: 'ONE PLAYER', act: () => this.solo() },
         { label: 'TWO PLAYERS', act: () => this.setup() },
@@ -321,7 +351,15 @@
           { label: 'KEYS: ARROWS + ENTER.  H HINTS.  F FULL SCREEN.', small: true, off: () => true },
           { label: 'PRESS (A) OR CLICK TO SPEED UP A FIGHT.', small: true, off: () => true },
           { label: 'BACK', act: UI.close }], i: 7 }) },
+        ...(app ? [{ label: 'INSTALL AS AN APP', act: () => (app === 'prompt' ? BC.app.install() : this.howInstall()) }] : []),
       ] });
+    }
+    // iPhones and iPads have no install prompt a page can raise, so show the steps instead
+    howInstall() {
+      const line = (label) => ({ label, small: true, off: () => true });
+      UI.open({ title: 'INSTALL ON IPHONE OR IPAD', w: 640, cover: true, items: [
+        line('1. OPEN THIS PAGE IN SAFARI.'), line('2. TAP THE SHARE BUTTON.'), line('3. CHOOSE "ADD TO HOME SCREEN".'),
+        line('IT THEN OPENS FULL SCREEN AND WORKS OFFLINE.'), { label: 'BACK', act: UI.close }], i: 4 });
     }
     solo() {
       const P = this.cpu, L = BC.ai.LEVELS, SIDES = ['SUN, MOVES FIRST', 'MOON', 'RANDOM'];
@@ -349,7 +387,10 @@
       ], i: 3 });
     }
     input() {}
-    update(dt) { this.t += dt; this.amb.update(dt); }
+    update(dt) {
+      this.t += dt; this.amb.update(dt);
+      if (UI.stack.length === 1 && this.offer !== BC.app.offer()) this.main();   // the offer to install can arrive late
+    }
     draw(ctx) {
       const env = BC.ENVS[this.envI], t = this.t;
       ctx.setTransform(2, 0, 0, 2, 0, 0);
@@ -385,12 +426,12 @@
         ctx.restore();
         ctx.drawImage(BC.stamp('王'), 0, 0, 30, 30, 786, 92 + bob, 60, 60);
       }
-      if (!(UI.stack.length > 1 && UI.stack[1].title === 'ONE PLAYER')) BC.text(ctx, 'PIXEL BATTLE CHESS', 480, 240 + bob, { a: 'c', s: 3, c: '#ffe9a0', o: '#2a0d16' });
+      if (!BC.compact && !(UI.stack.length > 1 && UI.stack[1].title === 'ONE PLAYER')) BC.text(ctx, 'PIXEL BATTLE CHESS', 480, 240 + bob, { a: 'c', s: 3, c: '#ffe9a0', o: '#2a0d16' });
       if (UI.stack.length > 1 && UI.stack[1].title === 'NEW GAME') {
         BC.text(ctx, env.name, 480, 258, { a: 'c', s: 4, g: ['#ffffff', env.accent], o: '#05030a' });
         BC.text(ctx, env.tag, 480, 290, { a: 'c', s: 1, c: '#e8dcf4', o: '#05030a' });
       }
-      BC.text(ctx, 'ONE OR TWO PLAYERS   MOUSE OR GAMEPAD', 480, 526, { a: 'c', s: 1, c: '#cfc0e0', o: '#05030a' });
+      if (!BC.compact) BC.text(ctx, 'ONE OR TWO PLAYERS   MOUSE, TOUCH OR GAMEPAD', 480, 528, { a: 'c', s: 1, c: '#cfc0e0', o: '#05030a' });
     }
   }
   BC.Title = Title;

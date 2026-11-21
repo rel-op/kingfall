@@ -63,8 +63,15 @@
       else if (k === 't') emit({ type: 'tip' });
       else if (k === 'f') BC.fullscreen();
     });
-    canvas.addEventListener('mousemove', (e) => emit(Object.assign({ type: 'move' }, pos(e))));
-    canvas.addEventListener('mousedown', (e) => { AU.unlock(); emit(Object.assign({ type: e.button === 2 ? 'back' : 'ok', mouse: true }, pos(e))); e.preventDefault(); });
+    // Pointer events cover mouse, finger and pen alike. A finger has no hover, so it sends no 'move'.
+    canvas.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch') emit(Object.assign({ type: 'move' }, pos(e))); });
+    canvas.addEventListener('pointerdown', (e) => {
+      AU.unlock();
+      if (e.pointerType === 'touch') BC.touch = true;
+      emit(Object.assign({ type: e.button === 2 ? 'back' : 'ok', mouse: true }, pos(e))); e.preventDefault();
+    });
+    // phones only let sound start as a finger lifts
+    window.addEventListener('pointerup', () => AU.unlock());
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   };
   // Standard-mapping gamepads. With two connected, pad 1 is Sun and pad 2 is Moon.

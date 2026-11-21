@@ -1,17 +1,34 @@
 // Drive the game in headless Chrome: run steps, take screenshots, print console errors.
 // usage: node tools/drive.mjs <url-or-file> '<json steps>'
+// A target starting "serve:" is served over http from this folder for the run (needed for the installable-app parts).
+// env: STRICT=1 drops Chrome's file-access flag; MOBILE=844x390 emulates a phone with a touch screen.
+// steps: {"tap":[x,y]} in game coordinates (960x540)  {"server":false} stops the server  {"reload":true}
 // steps: {"wait":ms} {"eval":"js"} {"evalFile":"path.js"} {"shot":"out.png"} {"size":[w,h]} {"frames":{n,dt,dir,every,at:{frame:js}}}
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { createServer } from 'node:http';
+import { extname, join, normalize, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const target = process.argv[2];
 const arg = process.argv[3] || '[]';
 const steps = JSON.parse(existsSync(arg) ? readFileSync(arg, 'utf8') : arg);
-const url = /^(https?|file):/.test(target) ? target : pathToFileURL(resolve(target.split('?')[0])).href + (target.includes('?') ? '?' + target.split('?')[1] : '');
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
+  '.png': 'image/png', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.css': 'text/css' };
+let server = null;
+if (target.startsWith('serve:')) {
+  const root = process.cwd();
+  server = createServer((req, res) => {
+    const path = join(root, normalize(decodeURIComponent(req.url.split('?')[0])).replace(/^([/\\]|\.\.)+/, '')), file = path.endsWith('/') || path === root ? join(path, 'index.html') : path;
+    try { const body = readFileSync(file); res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(body); }
+    catch (e) { res.writeHead(404); res.end('not found'); }
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+}
+const mobile = process.env.MOBILE ? process.env.MOBILE.split('x').map(Number) : null;
+const url = server ? `http://127.0.0.1:${server.address().port}/${target.slice(6)}` : /^(https?|file):/.test(target) ? target : pathToFileURL(resolve(target.split('?')[0])).href + (target.includes('?') ? '?' + target.split('?')[1] : '');
 const port = 9300 + Math.floor(Math.random() * 500);
 const dir = mkdtempSync(join(tmpdir(), 'kf-chrome-'));
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, '--window-size=1280,720',
@@ -44,12 +61,24 @@ try {
   };
   const send = (method, params = {}) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
   await send('Runtime.enable'); await send('Page.enable');
-  await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
+  if (mobile) { await send('Emulation.setDeviceMetricsOverride', { width: mobile[0], height: mobile[1], deviceScaleFactor: 2, mobile: true }); await send('Emulation.setTouchEmulationEnabled', { enabled: true }); }
+  else await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
   await send('Page.navigate', { url });
   await sleep(700);
   for (const s of steps) {
     if (s.wait) await sleep(s.wait);
     if (s.size) await send('Emulation.setDeviceMetricsOverride', { width: s.size[0], height: s.size[1], deviceScaleFactor: 1, mobile: false });
+    if (s.server === false && server) { await new Promise((r) => { server.closeAllConnections(); server.close(r); }); server = null; }
+    if (s.reload) { await send('Page.reload'); await sleep(1500); }
+    if (s.tap) {
+      // game coordinates to page coordinates, then a finger tap or a mouse click
+      const r = await send('Runtime.evaluate', { expression: '(() => { const r = BC.canvas.getBoundingClientRect(); return [r.left, r.top, r.width]; })()', returnByValue: true });
+      const at = typeof s.tap === 'string' ? (await send('Runtime.evaluate', { expression: s.tap, returnByValue: true })).result.result.value : s.tap;
+      const [left, top, width] = r.result.result.value, x = left + at[0] * width / 960, y = top + at[1] * width / 960;
+      if (mobile) { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
+      else { await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 }); }
+      await sleep(s.after || 350);
+    }
     if (s.evalFile) s.eval = readFileSync(s.evalFile, 'utf8');
     if (s.eval) {
       const r = await send('Runtime.evaluate', { expression: s.eval, awaitPromise: true, returnByValue: true });
@@ -86,6 +115,7 @@ try {
   }
   ws.close();
 } finally {
+  if (server) server.close();
   chrome.kill();
 }
 process.exit(failed ? 1 : 0);

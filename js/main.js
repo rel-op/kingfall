@@ -9,8 +9,11 @@
   function fit() {
     const s = Math.min(window.innerWidth / 16, window.innerHeight / 9);
     canvas.style.width = Math.floor(s * 16) + 'px'; canvas.style.height = Math.floor(s * 9) + 'px';
+    BC.compact = s * 16 < 780;   // phone-sized: menus are drawn larger
   }
-  window.addEventListener('resize', fit); fit();
+  window.addEventListener('resize', fit); window.addEventListener('orientationchange', () => setTimeout(fit, 250));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+  fit();
 
   // Soft glow: a blurred, contrast-boosted copy of the frame added back over itself.
   let bl = null;

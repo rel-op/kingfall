@@ -1,0 +1,13 @@
+[
+  { "wait": 2500 },
+  { "eval": "navigator.serviceWorker.ready.then(async () => { await new Promise((r) => setTimeout(r, 1500)); const ks = await caches.keys(), c = await caches.open(ks[0]); return 'saved for offline: ' + JSON.stringify({ caches: ks.length, files: (await c.keys()).length, inControl: !!navigator.serviceWorker.controller, offer: BC.app.offer() }); })" },
+  { "eval": "fetch('manifest.webmanifest').then((r) => r.json()).then(async (m) => { const out = []; for (const i of m.icons) { const r = await fetch(i.src), b = await createImageBitmap(await r.blob()); out.push(i.sizes + (b.width + 'x' + b.height === i.sizes ? ' ok' : ' WRONG ' + b.width)); } return 'manifest: ' + m.name + ', ' + m.display + ', ' + m.orientation + ', icons ' + out.join(', '); })" },
+  { "server": false },
+  { "reload": true },
+  { "wait": 1500 },
+  { "eval": "'server stopped, page reloaded: ' + JSON.stringify({ ready: !!BC.ready, scene: BC.scene && BC.scene.constructor.name, sprites: Object.keys(BC.assets.img).length })" },
+  { "eval": "fetch('assets/music/title.mp3', { headers: { Range: 'bytes=100-199' } }).then(async (r) => 'music slice offline: ' + r.status + ', ' + (await r.arrayBuffer()).byteLength + ' bytes, ' + r.headers.get('content-range'))" },
+  { "eval": "BC.ui.clear(); BC.go(new BC.Game({ ai: { side: 1, level: 4, coach: 2 } })); 'game started offline'" },
+  { "wait": 3000 },
+  { "eval": "'offline game: ' + JSON.stringify({ mode: BC.scene.mode, coachReady: !!BC.scene.advice, worker: !BC.ai.slow })" }
+]

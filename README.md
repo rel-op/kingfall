@@ -10,6 +10,11 @@ fought on the board.
 
 Open `index.html` in a browser. Nothing to install, no server needed.
 
+On a phone or tablet it needs a web address (any static host will do: the folder is the site). Hold the
+phone sideways, tap a piece, then a square. From a web address it can also be installed as an app, which
+opens full screen and works offline: Android, Chrome and Edge show INSTALL AS AN APP on the title menu;
+on an iPhone or iPad the same item lists the steps (Share, then Add to Home Screen).
+
 | | Mouse | Gamepad | Keyboard |
 |---|---|---|---|
 | Move the cursor | point | stick or d-pad | arrows / WASD |
@@ -19,6 +24,8 @@ Open `index.html` in a browser. Nothing to install, no server needed.
 | Ask the coach for a tip (one player) | | Y | T |
 | Menu | | Start | Esc |
 | Full screen | | | F |
+
+MENU and TIP buttons sit in the bottom-left corner for a finger, or a mouse with no keyboard to hand.
 
 With two gamepads connected, pad 1 plays Sun and pad 2 plays Moon. With one, you pass it.
 Press A or click during a fight to fast-forward it.
@@ -77,6 +84,9 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   The review uses Lichess's published winning-chance and accuracy formulas and its bands for an
   inaccuracy, mistake and blunder. The tip in two steps, the warning before a bad move and the
   replay of your mistakes follow what Lichess, Chess.com's coach and Lucas Chess do.
+- The installable app is a manifest, four icons (`tools/make_icons.py`) and `sw.js`, which keeps a copy of
+  every game file on the device and refreshes it in the background. `tools/make-sw.mjs` writes `sw.js`
+  with the file list; run it after changing game files, so a first visit saves the new set in one go.
 - Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`), then
   levelled and packed by `tools/pack-audio.mjs`.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
@@ -91,5 +101,9 @@ node tools/drive.mjs "index.html?game&ai=4" '[{"wait":1500},{"evalFile":"tests/s
 uv run tools/process_art.py               # rebuild sprites from art/raw
 uv run tools/draw_fx.py --preview         # rebuild effect sprites, write out/fx-preview.png
 node tools/pack-audio.mjs                 # rebuild assets/sfx.js
+uv run tools/make_icons.py                # rebuild the app icons
+node tools/make-sw.mjs                    # rebuild sw.js (the offline file list) after changing game files
+MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/touch.json   # a phone-sized game played by touch
+MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/app.json     # install parts, then play with the server stopped
 node tools/trailer.mjs                    # re-record trailer.mp4
 ```

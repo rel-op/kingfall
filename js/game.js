@@ -59,6 +59,10 @@
     // ---- input ----
     input(ev) {
       if (this.mode === 'over') return;
+      if (ev.type === 'ok' && ev.mouse) {
+        const b = BC.ui.buttons(this).find((q) => ev.x >= q.x && ev.x <= q.x + q.w && ev.y >= q.y && ev.y <= q.y + q.h);
+        if (b) { BC.audio.sfx('ui_ok', 0.6); if (b.id === 'menu') BC.ui.pause(this); else this.askTip(); return; }
+      }
       if (this.mode === 'anim') { if (ev.type === 'ok') this.speed = 5; return; }
       if (this.mode === 'think') { if (ev.type === 'menu' || ev.type === 'back') BC.ui.pause(this); return; }
       const turn = this.S.turn;
