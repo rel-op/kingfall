@@ -8,7 +8,9 @@ fought on the board.
 
 ## Play
 
-Open `index.html` in a browser. Nothing to install, no server needed.
+**Play it now: https://rel-op.github.io/kingfall/**
+
+Or download this folder and open `index.html` in a browser. Nothing to install, no server needed.
 
 On a phone or tablet it needs a web address (any static host will do: the folder is the site). Hold the
 phone sideways, tap a piece, then a square. From a web address it can also be installed as an app, which
@@ -107,3 +109,7 @@ MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/touch.json   # a ph
 MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/app.json     # install parts, then play with the server stopped
 node tools/trailer.mjs                    # re-record trailer.mp4
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
