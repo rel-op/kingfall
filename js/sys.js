@@ -35,7 +35,8 @@
     g.gain.value = vol === undefined ? 1 : vol;
     s.connect(g); g.connect(AU.gain); s.start();
   };
-  // key: one track, looped; or a list of tracks played in turn, starting on any one of them.
+  // key: one track, looped; or a list of tracks, each played AU.REPEAT times before the next takes over, starting on any one of them.
+  AU.REPEAT = 3;
   AU.music = function (key) {
     const list = [].concat(key), id = list.join('+'), url = (n) => 'assets/music/' + list[n] + '.mp3';
     AU.want = key;
@@ -54,10 +55,12 @@
       const ready = () => { AU.next = new Audio(url((i + 1) % list.length)); AU.next.preload = 'auto'; };
       // the same player carries on with the next track: a phone lets a player that has already played start again by itself
       let busy = false;
+      AU.plays = 1;
       const next = () => {
         if (busy || AU.el !== el) return;
-        busy = true; i = (i + 1) % list.length; AU.track = list[i];
-        el.src = url(i); el.volume = BC.opts.music * 0.7; el.play().catch(() => {}); ready();
+        if (AU.plays < AU.REPEAT) { AU.plays++; el.currentTime = 0; }   // the same theme again, from the top
+        else { AU.plays = 1; busy = true; i = (i + 1) % list.length; AU.track = list[i]; el.src = url(i); ready(); }
+        el.volume = BC.opts.music * 0.7; el.play().catch(() => {});
       };
       el.onplaying = () => { busy = false; };
       el.onended = next;

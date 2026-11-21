@@ -186,6 +186,40 @@
   };
 
   // ---------- living atmosphere per arena ----------
+  // What moves inside each backdrop picture, in backdrop pixels (960 x 540). All of it is small on purpose.
+  //   hang:  banners fixed along their top edge       [x, y, w, h]
+  //   fly:   flags fixed to a pole on their left      [x, y, w, h]
+  //   flame: fire fixed at its base                   [x, y, w, h]
+  //   flow:  water or lava running down               [x, y, w, h, 'r,g,b', pixels a second]
+  //   glow:  a light that slowly swells and fades     [x, y, radius, 'r,g,b', strength, speed]
+  //   glint: sparkles on water                        [x, y, w, h, 'r,g,b']
+  //   koi:   fish circling in a pond                  [centre x, centre y, radius x, radius y, speed]
+  const LIFE = {
+    sakura: {
+      hang: [[208, 87, 30, 70], [354, 97, 28, 56], [505, 97, 29, 56], [678, 97, 29, 56], [823, 87, 32, 71]],
+      flow: [[16, 340, 22, 52, '255,255,255', 70]],
+      glint: [[8, 408, 80, 40, '225,255,240'], [40, 448, 48, 18, '225,255,240']],
+      koi: [[36, 426, 24, 5, 0.24], [52, 458, 20, 6, -0.19]],
+    },
+    ember: {
+      hang: [[188, 44, 27, 69], [758, 67, 24, 66]],
+      flame: [[266, 66, 30, 32], [674, 64, 34, 36], [80, 272, 40, 40], [853, 280, 42, 45]],
+      flow: [[46, 297, 18, 60, '255,236,160', 20], [933, 337, 25, 100, '255,236,160', 20]],
+      glow: [[18, 480, 90, '255,120,30', 0.16, 0.7], [935, 505, 80, '255,120,30', 0.16, 0.6]],
+    },
+    frost: {
+      glow: [[188, 105, 34, '255,214,150', 0.1, 0.5], [372, 104, 30, '255,214,150', 0.1, 0.41], [892, 90, 36, '255,214,150', 0.1, 0.47], [616, 36, 80, '200,225,255', 0.07, 0.3]],
+      glint: [[575, 110, 85, 40, '235,245,255']],
+    },
+    storm: {
+      fly: [[107, 42, 106, 106], [800, 12, 70, 76], [889, 386, 71, 142]],
+      glow: [[695, 29, 70, '255,214,140', 0.22, 0.8]],
+    },
+  };
+  // a steady pseudo-random number for item n, so sparkles and streaks need no stored state
+  const rnd = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
+  const KOI = [['#f6efe2', '#f0692a', '#f0692a', '#f6efe2', '#f0692a', '#eaa878', '#f8dcc4'], ['#f6efe2', '#f6efe2', '#e9b23a', '#f6efe2', '#f6efe2', '#e9d2a0', '#fbf3e2']];
+
   class Ambient {
     constructor(env) { this.env = env; this.p = new BC.Parts(); this.t = 0; this.acc = 0; for (let i = 0; i < 90; i++) this.update(0.1); }
     spawn() {
@@ -246,17 +280,66 @@
       }
       ctx.restore();
     }
+    // Small movements inside the backdrop picture: cloth in the wind, fire, running water, fish. Drawn straight after it.
+    life(ctx, bg) {
+      const L = LIFE[this.env.key], t = this.t;
+      if (!bg || !L) return;
+      ctx.save(); ctx.translate(-24, -14); ctx.scale(1.05, 1.05);
+      // cloth and fire are the picture's own pixels, redrawn in thin strips pushed a little out of line
+      (L.hang || []).forEach(([x, y, w, h], n) => {
+        for (let j = 4; j < h; j += 2) { const v = j / h; ctx.drawImage(bg, x, y + j, w, 3, x + Math.sin(t * 1.5 + n * 1.9 - v * 2.2) * 1.4 * v * v, y + j, w, 3); }
+      });
+      (L.fly || []).forEach(([x, y, w, h], n) => {
+        for (let i = 2; i < w - 2; i += 2) { const u = i / w; ctx.drawImage(bg, x + i, y, 3, h, x + i, y + (Math.sin(t * 5.2 + n * 2.3 - u * 6) + 0.4 * Math.sin(t * 8.7 - u * 11)) * 1.8 * u, 3, h); }
+      });
+      (L.flame || []).forEach(([x, y, w, h], n) => {
+        for (let j = 0; j < h - 3; j += 2) { const v = 1 - j / h; ctx.drawImage(bg, x, y + j, w, 3, x + (Math.sin(t * 8 + n * 2 + j * 0.45) + 0.5 * Math.sin(t * 13.1 + j * 0.8)) * 1.1 * v * v, y + j, w, 3); }
+      });
+      (L.koi || []).forEach(([cx, cy, rx, ry, sp], n) => {
+        // each part of the body follows the head round the same loop, so the fish bends through the turns
+        ctx.globalAlpha = 0.82;
+        for (let j = 6; j >= 0; j--) {
+          const b = t * sp + n * 2.4 - Math.sign(sp) * j * 2.1 / rx, wd = [3, 4.4, 4.6, 3.8, 2.6, 1.8, 3.4][j];
+          ctx.fillStyle = KOI[n % 2][j];
+          ctx.beginPath(); ctx.arc(cx + Math.cos(b) * rx, cy + Math.sin(b) * ry + Math.sin(t * 6 - j * 0.9) * 0.14 * j, wd / 2, 0, 7); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      });
+      ctx.globalCompositeOperation = 'lighter';
+      for (const [x, y, w, h, col, sp] of L.flow || []) {
+        for (let n = 0; n < w * h / 45; n++) {
+          const yy = (rnd(n + 99) * h + t * sp * (0.7 + rnd(n + 50) * 0.6)) % h;
+          ctx.fillStyle = `rgba(${col},${0.3 * Math.sin(Math.PI * yy / h)})`;
+          ctx.fillRect(x + rnd(n) * (w - 1.5), y + yy, 1.5, 4 + rnd(n + 7) * 4);
+        }
+      }
+      for (const [x, y, r, col, k, sp] of L.glow || []) {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, `rgba(${col},${k * (0.5 + 0.5 * Math.sin(t * sp + x))})`); g.addColorStop(1, `rgba(${col},0)`);
+        ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      for (const [x, y, w, h, col] of L.glint || []) {
+        for (let n = 0; n < 9; n++) {
+          // each sparkle swells and fades over about three seconds, then turns up somewhere else
+          const c = t * 0.35 + rnd(n + x) * 9, id = n + x + Math.floor(c) * 13;
+          ctx.fillStyle = `rgba(${col},${0.5 * Math.sin(Math.PI * (c - Math.floor(c))) ** 2})`;
+          ctx.fillRect(x + rnd(id + 1) * w, y + rnd(id + 2) * h, 3 + rnd(id + 3) * 4, 1);
+        }
+      }
+      ctx.restore();
+    }
     // Flickering firelight painted onto the backdrop's own lanterns and braziers (backdrop pixel positions).
     fires(ctx) {
       const L = { sakura: [[118, 184, 26], [280, 141, 18], [428, 141, 18], [629, 141, 18], [763, 141, 18], [913, 376, 26]],
         ember: [[278, 96, 46], [689, 96, 46], [100, 312, 54], [873, 312, 54], [95, 150, 60], [845, 150, 40]],
+        frost: [[15, 391, 20], [107, 190, 18], [143, 157, 14], [850, 157, 14]],
         storm: [[270, 138, 18], [545, 138, 18], [138, 166, 16], [80, 212, 22], [51, 405, 28], [899, 227, 22], [759, 144, 14], [695, 29, 44]] }[this.env.key];
       if (!L) return;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       L.forEach(([x, y, r], i) => {
         const wx = -24 + x * 1.05, wy = -14 + y * 1.05, f = 0.75 + 0.25 * Math.sin(this.t * (7 + i) + i * 2) * Math.sin(this.t * 3.1 + i);
         const g = ctx.createRadialGradient(wx, wy, 0, wx, wy, r * f);
-        g.addColorStop(0, this.env.key === 'ember' ? 'rgba(255,170,60,0.55)' : 'rgba(255,220,150,0.5)'); g.addColorStop(1, 'rgba(255,120,30,0)');
+        g.addColorStop(0, { ember: 'rgba(255,170,60,0.55)', frost: 'rgba(255,214,150,0.3)' }[this.env.key] || 'rgba(255,220,150,0.5)'); g.addColorStop(1, 'rgba(255,120,30,0)');
         ctx.fillStyle = g; ctx.fillRect(wx - r, wy - r, r * 2, r * 2);
       });
       ctx.restore();

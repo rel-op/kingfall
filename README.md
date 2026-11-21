@@ -41,7 +41,8 @@ Press A or click during a fight to fast-forward it.
   finishing routine: the pawn's dash-through thrust, the knight's double charge, the
   bishop's pillars of light, the rook golem's launcher and slam, the queen's blink-and-flurry,
   and the king's one-cut finish.
-- Four arenas: Sakura Keep, Ember Forge, Frostmoon Abbey, Stormwall Keep. Each has two music themes, played in turn during a game.
+- Four arenas: Sakura Keep, Ember Forge, Frostmoon Abbey, Stormwall Keep. Each has two music themes; a game plays one three times, then the other. The backdrops move a little:
+  banners and flags in the wind, brazier flames, koi in the pond, lava, candle and window light.
 - One player: sixteen computer opponents, from the Stable Hand, who has just learned the moves, up to
   the Crown at full strength. Play either army.
 - A coach for one-player games, off, tips only, or full. A tip shows first which piece to move, then
@@ -94,7 +95,9 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   `js/app.js` raises the restart notice.
 - Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`). The effects are
   levelled and packed by `tools/pack-audio.mjs`; `tools/trim-music.mjs` cuts the silence off the end
-  of each music track without re-encoding it. In a game the arena's two themes play in turn.
+  of each music track without re-encoding it.
+- The backdrop animations are listed per arena in the `LIFE` table in `js/view.js`, as boxes in backdrop
+  pixels. Cloth and fire are the picture's own pixels, redrawn in thin strips pushed slightly out of line.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
   headless Chrome and mixing in each sound at the moment the game played it.
 

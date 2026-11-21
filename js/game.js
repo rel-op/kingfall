@@ -366,7 +366,7 @@
       this.world(ctx);
       ctx.imageSmoothingEnabled = true;
       const bg = BC.assets.img['bg_' + env.key];
-      if (bg) ctx.drawImage(bg, -24, -14, 1008, 568);
+      if (bg) { ctx.drawImage(bg, -24, -14, 1008, 568); this.amb.life(ctx, bg); }
       else { const g = ctx.createLinearGradient(0, 0, 0, 540); g.addColorStop(0, env.sky); g.addColorStop(1, '#201428'); ctx.fillStyle = g; ctx.fillRect(-30, -20, 1020, 580); }
       ctx.fillStyle = env.shade; ctx.fillRect(-30, -20, 1020, 580);
       this.amb.fires(ctx);
