@@ -22,7 +22,7 @@
     { name: 'EARL', tag: 'STRONG CLUB PLAYER', depth: 5, temp: 18 },
     { name: 'DUKE', tag: 'TOURNAMENT PLAYER', depth: 6, temp: 12 },
     { name: 'MARSHAL', tag: 'STRONG TOURNAMENT PLAYER', depth: 7, temp: 8 },
-    { name: 'CHANCELLOR', tag: 'EXPERT', nodes: 40000, ms: 1500 },
+    { name: 'CHANCELLOR', tag: 'EXPERT', nodes: 120000, ms: 1500 },
     { name: 'REGENT', tag: 'RARELY SLIPS', nodes: 400000, ms: 1500 },
     { name: 'THE CROWN', tag: 'FULL STRENGTH', ms: 2500 },
   ];
