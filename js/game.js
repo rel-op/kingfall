@@ -15,20 +15,26 @@
         this.envI = cfg.env || 0; this.S = cfg.fen ? C.fromFEN(cfg.fen) : C.newGame();
         this.clockBase = cfg.clock || 0; this.clock = this.clockBase ? [this.clockBase * 60, this.clockBase * 60] : null;
         this.moves = []; this.captured = [[], []]; this.last = null; this.result = null;
+        // one player: ai = { side: the computer's army, level: 1..10, coach: 0 off, 1 tips, 2 full }
+        this.ai = cfg.ai || null; this.fen0 = cfg.fen || C.START_FEN; this.line = []; this.rev = []; this.tips = 0;
       }
+      this.h0 = this.line.length; this.tok = 0; this.tip = 0; this.tipNext = cfg.tip || 0; this.bal = this.balT = 50; this.danger = [];
       this.env = BC.ENVS[this.envI]; this.amb = new BC.Ambient(this.env);
       this.cursor = [V.orient === 'side' ? 52 : 52, V.orient === 'side' ? 12 : 12];
       this.mode = this.result ? 'over' : 'play';
       this.build(); this.refresh();
       BC.audio.music(this.env.key);
+      if (this.mode === 'play') this.turnStart();
     }
     snapshot() {
-      return { v: 2, env: this.envI, clockBase: this.clockBase, clock: this.clock && this.clock.slice(), S: C.clone(this.S), moves: this.moves.slice(),
+      return { v: 3, ai: this.ai, fen0: this.fen0, line: this.line.slice(), rev: this.rev.slice(), tips: this.tips, env: this.envI, clockBase: this.clockBase, clock: this.clock && this.clock.slice(), S: C.clone(this.S), moves: this.moves.slice(),
         captured: [this.captured[0].slice(), this.captured[1].slice()], last: this.last, result: this.result, date: Date.now() };
     }
     load(s) {
       this.envI = s.env; this.clockBase = s.clockBase; this.clock = s.clock && s.clock.slice(); this.S = C.clone(s.S);
       this.moves = s.moves.slice(); this.captured = [s.captured[0].slice(), s.captured[1].slice()]; this.last = s.last; this.result = s.result || null;
+      // a save from before moves were recorded starts its record from where it stands
+      this.ai = s.ai || null; this.fen0 = s.fen0 || C.toFEN(s.S); this.line = (s.fen0 ? s.line : []).slice(); this.rev = (s.rev || []).slice(); this.tips = s.tips || 0;
     }
     build() {
       this.pv = [];
@@ -54,8 +60,9 @@
     input(ev) {
       if (this.mode === 'over') return;
       if (this.mode === 'anim') { if (ev.type === 'ok') this.speed = 5; return; }
+      if (this.mode === 'think') { if (ev.type === 'menu' || ev.type === 'back') BC.ui.pause(this); return; }
       const turn = this.S.turn;
-      if (ev.pad !== undefined && BC.input.padCount() >= 2 && ev.pad !== turn) return;
+      if (ev.pad !== undefined && !this.ai && BC.input.padCount() >= 2 && ev.pad !== turn) return;
       if (this.mode === 'promo') return this.promoInput(ev);
       if (ev.type === 'dir') {
         const uv = V.sqUV(this.cursor[turn]);
@@ -68,6 +75,7 @@
       } else if (ev.type === 'back') { if (this.sel >= 0) this.deselect(); else BC.ui.pause(this); }
       else if (ev.type === 'menu') BC.ui.pause(this);
       else if (ev.type === 'hint') { BC.opts.hints = !BC.opts.hints; BC.saveOpts(); BC.audio.sfx('ui_ok', 0.6); this.note(BC.opts.hints ? 'MOVE HINTS ON' : 'MOVE HINTS OFF'); }
+      else if (ev.type === 'tip') this.askTip();
       else if (ev.type === 'move' && this.mode === 'play') { const sq = this.pick(ev.x, ev.y); if (sq >= 0) { this.cursor[turn] = sq; this.mouseMode = true; } }
     }
     pick(x, y) { const p = V.unproject(x, y); return V.uvSq(p.u, p.v); }
@@ -93,7 +101,7 @@
       if (this.sel >= 0) {
         const opts = this.targets.filter((m) => m.to === sq);
         if (opts.length > 1) { this.promo = { moves: opts, i: 0 }; this.mode = 'promo'; BC.audio.sfx('ui_ok'); return; }
-        if (opts.length === 1) return void this.play(opts[0]);
+        if (opts.length === 1) return void this.commit(opts[0]);
         if (sq === this.sel) return this.deselect();
         if (!pc || pc.c !== turn) return this.deselect();
       }
@@ -111,7 +119,59 @@
       } else if (ev.type === 'ok') this.promoPick();
       else if (ev.type === 'back') { this.promo = null; this.mode = 'play'; }
     }
-    promoPick() { const m = this.promo.moves[this.promo.i]; this.promo = null; this.play(m); }
+    promoPick() { const m = this.promo.moves[this.promo.i]; this.promo = null; this.mode = 'play'; this.commit(m); }
+
+    // ---- one player: the opponent's turn, and the coach ----
+    human() { return !this.ai || this.S.turn !== this.ai.side; }
+    turnStart() {
+      this.tip = this.tipNext; this.tipNext = 0; this.warn = null; this.advice = null; this.danger = [];
+      if (!this.ai) return;
+      const tok = ++this.tok;
+      if (!this.human()) {
+        this.mode = 'think'; this.thinkT = 0; this.aiMove = null;
+        BC.ai.think(this.ai.level, this.fen0, this.line).then((r) => {
+          if (tok !== this.tok) return;
+          this.aiMove = r || { uci: C.uci(this.legal[(Math.random() * this.legal.length) | 0]) };
+          // start the coach on the position the player is about to face, so its advice is ready in time
+          BC.ai.study(this.fen0, this.line.concat(this.aiMove.uci));
+        });
+      } else {
+        if (this.ai.coach === 2) this.danger = this.hanging();
+        BC.ai.study(this.fen0, this.line).then((r) => {
+          if (tok !== this.tok || !r) return;
+          this.advice = r;
+          const w = BC.ai.win(r.moves[0].cp);
+          this.balT = this.ai.side === 1 ? w : 100 - w;
+        });
+      }
+    }
+    // The player's pieces that can be taken for free, or by something cheaper.
+    hanging() {
+      const S = this.S, c = S.turn, out = [], val = (t) => (t === 'k' ? 99 : C.VALUE[t]);
+      S.board.forEach((p, sq) => {
+        if (!p || p.c !== c || p.t === 'k') return;
+        const A = C.attackers(S, sq, c ^ 1);
+        if (A.length && (!C.attackers(S, sq, c).length || Math.min(...A.map(val)) < C.VALUE[p.t])) out.push(sq);
+      });
+      return out;
+    }
+    best() { const A = this.advice; return A ? this.legal.find((m) => C.uci(m) === A.moves[0].uci) : null; }
+    // First ask shows which piece to move, the second shows where.
+    askTip() {
+      if (!this.ai || !this.ai.coach) return this.note(this.ai ? 'THE COACH IS OFF' : 'TIPS ARE FOR ONE-PLAYER GAMES');
+      if (this.tip < 2) { this.tip++; this.tips++; BC.audio.sfx('ui_ok', 0.6); }
+      if (!this.advice) this.note('THE COACH IS THINKING');
+    }
+    words(m) { return m.flag === 'ck' || m.flag === 'cq' ? 'CASTLE' : BC.PIECE_NAMES[m.p] + (m.cap ? ' TAKES ' : ' TO ') + C.sqName(m.to); }
+    // With the full coach on, a move that throws away a lot is questioned before it is played.
+    commit(m) {
+      const A = this.advice;
+      if (this.ai && this.ai.coach === 2 && A) {
+        const p = A.moves.find((x) => x.uci === C.uci(m)), b = A.moves[0];
+        if (p && BC.ai.win(b.cp) - BC.ai.win(p.cp) >= 10) return BC.ui.caution(this, m, p, b);
+      }
+      this.play(m);
+    }
 
     // ---- moving ----
     async morph(pv, to) { pv.mT = to; await this.until(() => pv.m === to); }
@@ -140,6 +200,13 @@
     async play(m) {
       const S = this.S, pv = this.at(m.from), team = pv.c;
       this.history.push(JSON.stringify(this.snapshot()));
+      const u = C.uci(m), A = this.advice;
+      if (this.ai && team !== this.ai.side && A) {
+        // remember how this move compared with the best one, for the review after the game
+        const p = A.moves.find((x) => x.uci === u), bm = this.best();
+        if (p && bm) this.rev.push({ n: this.line.length, did: this.words(m), better: this.words(bm), wb: BC.ai.win(A.moves[0].cp), wp: BC.ai.win(p.cp) });
+      }
+      this.line.push(u); this.tok++; this.tip = 0; this.warn = null; this.danger = [];
       this.mode = 'anim'; this.speed = 1; this.sel = -1; this.targets = [];
       const san = C.san(S, m, this.legal);
       await this.morph(pv, 7);
@@ -186,6 +253,7 @@
       if (this.checkSq >= 0) { this.say('CHECK', '', team); BC.audio.sfx('check', 0.8); }
       this.mode = 'play';
       BC.save.put('auto', this.snapshot());
+      this.turnStart();
     }
     // Instant capture used when fight scenes are turned off.
     smash(victim, dir) {
@@ -198,7 +266,7 @@
     }
     say(str, sub, team) { this.banner = { str, sub, team, age: 0, life: 1.5 }; }
     end(result) {
-      this.result = result; this.mode = 'over'; this.sel = -1; this.targets = [];
+      this.result = result; this.mode = 'over'; this.sel = -1; this.targets = []; this.tok++;
       BC.save.del('auto');
       BC.audio.sfx(result.winner >= 0 ? 'win' : 'draw');
       BC.ui.gameOver(this);
@@ -207,14 +275,23 @@
     }
     undo() {
       if (!this.history.length || this.mode !== 'play') return false;
-      this.load(JSON.parse(this.history.pop()));
-      this.sel = -1; this.targets = []; this.build(); this.refresh();
+      // against the computer, go back to the player's own last turn
+      let s;
+      do s = JSON.parse(this.history.pop()); while (this.ai && s.S.turn === this.ai.side && this.history.length);
+      this.load(s);
+      this.sel = -1; this.targets = []; this.build(); this.refresh(); this.tok++; this.turnStart();
       return true;
     }
 
     // ---- frame update ----
     update(dt) {
       this.rt += dt;
+      this.bal += (this.balT - this.bal) * Math.min(1, dt * 4);
+      // the computer's move is played once it has one and has "thought" long enough to follow
+      if (this.mode === 'think' && (this.thinkT += dt) > 0.55 && this.aiMove) {
+        const u = this.aiMove.uci, m = this.legal.find((x) => C.uci(x) === u) || this.legal[0];
+        this.aiMove = null; this.play(m);
+      }
       this.amb.update(dt);
       this.shakeM = Math.max(0, this.shakeM - dt * 34);
       if (this.banner && (this.banner.age += dt) > this.banner.life) this.banner = null;
@@ -245,7 +322,7 @@
         else if (p.m > p.mT) p.m = Math.max(p.mT, p.m - w * 7 / 0.26);
         p.at += w; p.white = Math.max(0, p.white - dt * 7);
       }
-      if (this.mode === 'play' && this.clock) {
+      if ((this.mode === 'play' || this.mode === 'think') && this.clock) {
         const c = this.clock, tn = this.S.turn, before = c[tn];
         c[tn] = Math.max(0, c[tn] - dt);
         if (c[tn] < 10 && Math.floor(before) !== Math.floor(c[tn])) BC.audio.sfx('tick', 0.7);
@@ -323,6 +400,17 @@
               }
             }
           }
+        }
+        if (this.mode === 'play' && this.ai) {
+          // coach marks: orange for a piece in danger, bright green for the suggested move, red for the reply to fear
+          const tt = BC.ui.t, mark = (sq, inset, fill, line, w) => {
+            sqQuad(sq, inset); if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+            ctx.lineJoin = 'miter'; ctx.strokeStyle = '#1a0c16'; ctx.lineWidth = w + 2.5; ctx.stroke(); ctx.strokeStyle = line; ctx.lineWidth = w; ctx.stroke();
+          };
+          for (const sq of this.danger) mark(sq, 0.1 + 0.02 * Math.sin(tt * 6), null, '#ff8a28', 2);
+          const bm = this.tip ? this.best() : null, a = 0.3 + 0.12 * Math.sin(tt * 7);
+          if (bm) { mark(bm.from, 0.04, `rgba(90,255,150,${a})`, '#b4ffd0', 3); if (this.tip > 1) mark(bm.to, 0.04, `rgba(90,255,150,${a + 0.12})`, '#b4ffd0', 3); }
+          if (this.warn) for (const sq of [this.warn.from, this.warn.to]) mark(sq, 0.04, 'rgba(255,40,60,0.38)', '#ff4058', 3);
         }
         if (this.mode === 'play') {
           const uv = V.sqUV(this.cursor[turn]), b = 0.06 + 0.03 * Math.sin(t * 7), L = 0.26;

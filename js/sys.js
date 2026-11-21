@@ -60,6 +60,7 @@
       else if (k === 'Backspace' || k === 'x') emit({ type: 'back' });
       else if (k === 'Escape' || k === 'p') emit({ type: 'menu' });
       else if (k === 'h') emit({ type: 'hint' });
+      else if (k === 't') emit({ type: 'tip' });
       else if (k === 'f') BC.fullscreen();
     });
     canvas.addEventListener('mousemove', (e) => emit(Object.assign({ type: 'move' }, pos(e))));
@@ -78,7 +79,7 @@
         if (down && !st.b[i]) { AU.unlock(); emit({ type, pad }); }
         st.b[i] = down;
       };
-      btn(0, 'ok'); btn(1, 'back'); btn(2, 'hint'); btn(3, 'hint'); btn(9, 'menu'); btn(8, 'menu');
+      btn(0, 'ok'); btn(1, 'back'); btn(2, 'hint'); btn(3, 'tip'); btn(9, 'menu'); btn(8, 'menu');
       const p = (i) => g.buttons[i] && g.buttons[i].pressed;
       let dx = (p(15) ? 1 : 0) - (p(14) ? 1 : 0), dy = (p(13) ? 1 : 0) - (p(12) ? 1 : 0);
       const ax = g.axes[0] || 0, ay = g.axes[1] || 0;

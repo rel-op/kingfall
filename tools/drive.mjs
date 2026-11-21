@@ -1,6 +1,6 @@
 // Drive the game in headless Chrome: run steps, take screenshots, print console errors.
 // usage: node tools/drive.mjs <url-or-file> '<json steps>'
-// steps: {"wait":ms} {"eval":"js"} {"shot":"out.png"} {"size":[w,h]} {"frames":{n,dt,dir,every,at:{frame:js}}}
+// steps: {"wait":ms} {"eval":"js"} {"evalFile":"path.js"} {"shot":"out.png"} {"size":[w,h]} {"frames":{n,dt,dir,every,at:{frame:js}}}
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +15,7 @@ const url = /^(https?|file):/.test(target) ? target : pathToFileURL(resolve(targ
 const port = 9300 + Math.floor(Math.random() * 500);
 const dir = mkdtempSync(join(tmpdir(), 'kf-chrome-'));
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${dir}`, '--window-size=1280,720',
-  '--hide-scrollbars', '--mute-audio', '--allow-file-access-from-files', '--autoplay-policy=no-user-gesture-required', 'about:blank'], { stdio: 'ignore' });
+  '--hide-scrollbars', '--mute-audio', ...(process.env.STRICT ? [] : ['--allow-file-access-from-files']), '--autoplay-policy=no-user-gesture-required', 'about:blank'], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function pageWs() {
@@ -50,6 +50,7 @@ try {
   for (const s of steps) {
     if (s.wait) await sleep(s.wait);
     if (s.size) await send('Emulation.setDeviceMetricsOverride', { width: s.size[0], height: s.size[1], deviceScaleFactor: 1, mobile: false });
+    if (s.evalFile) s.eval = readFileSync(s.evalFile, 'utf8');
     if (s.eval) {
       const r = await send('Runtime.evaluate', { expression: s.eval, awaitPromise: true, returnByValue: true });
       if (r.result?.exceptionDetails) { failed = true; console.log('[eval error]', r.result.exceptionDetails.exception?.description); }

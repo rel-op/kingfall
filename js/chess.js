@@ -278,8 +278,45 @@
 
   function clone(S) { return JSON.parse(JSON.stringify(S)); }
 
+  function toFEN(S) {
+    let s = '';
+    for (let r = 0; r < 8; r++) {
+      let gap = 0;
+      for (let f = 0; f < 8; f++) {
+        const p = S.board[r * 8 + f];
+        if (!p) { gap++; continue; }
+        s += (gap || '') + (p.c === 0 ? p.t.toUpperCase() : p.t); gap = 0;
+      }
+      s += (gap || '') + (r < 7 ? '/' : '');
+    }
+    return `${s} ${S.turn ? 'b' : 'w'} ${S.castle || '-'} ${S.ep >= 0 ? sqName(S.ep) : '-'} ${S.half} ${S.full}`;
+  }
+  // A move as plain coordinates ("e2e4", "e7e8q"), the form the engine speaks.
+  function uci(m) { return sqName(m.from) + sqName(m.to) + (m.promo || ''); }
+  // The types of every piece of colour `by` that attacks a square.
+  function attackers(S, sq, by) {
+    const out = [], b = S.board, r = sq >> 3, f = sq & 7;
+    for (let s = 0; s < 64; s++) {
+      const p = b[s];
+      if (!p || p.c !== by || s === sq) continue;
+      const dr = r - (s >> 3), df = f - (s & 7), ar = Math.abs(dr), af = Math.abs(df);
+      let hit = false;
+      if (p.t === 'p') hit = af === 1 && dr === (by === 0 ? -1 : 1);
+      else if (p.t === 'n') hit = ar * af === 2;
+      else if (p.t === 'k') hit = Math.max(ar, af) === 1;
+      else if ((ar === af && p.t !== 'r') || ((!ar || !af) && p.t !== 'b')) {
+        const sr = Math.sign(dr), sf = Math.sign(df);
+        let rr = (s >> 3) + sr, ff = (s & 7) + sf;
+        hit = true;
+        while (rr !== r || ff !== f) { if (b[rr * 8 + ff]) { hit = false; break; } rr += sr; ff += sf; }
+      }
+      if (hit) out.push(p.t);
+    }
+    return out;
+  }
+
   const api = { START_FEN, VALUE, sqName, sqFromName, fromFEN, newGame, posKey, attacked, kingSq, inCheck,
-    legalMoves, make, unmake, play, status, san, perft, clone };
+    legalMoves, make, unmake, play, status, san, perft, clone, toFEN, uci, attackers };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else (root.BC = root.BC || {}).chess = api;
 })(typeof window !== 'undefined' ? window : globalThis);

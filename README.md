@@ -1,6 +1,6 @@
 # KINGFALL
 
-Pixel battle chess for two players on one machine. Every piece is a stone chessman that
+Pixel battle chess for one player against the computer, or two on one machine. Every piece is a stone chessman that
 wakes into a warrior when you pick it up, and every capture is a short fighting-game duel
 fought on the board.
 
@@ -15,7 +15,8 @@ Open `index.html` in a browser. Nothing to install, no server needed.
 | Move the cursor | point | stick or d-pad | arrows / WASD |
 | Pick a piece, confirm | click | A | Enter / Space |
 | Cancel | right click | B | Backspace / X |
-| Toggle move hints | | X or Y | H |
+| Toggle move hints | | X | H |
+| Ask the coach for a tip (one player) | | Y | T |
 | Menu | | Start | Esc |
 | Full screen | | | F |
 
@@ -31,6 +32,12 @@ Press A or click during a fight to fast-forward it.
   bishop's pillars of light, the rook golem's launcher and slam, the queen's blink-and-flurry,
   and the king's one-cut finish.
 - Three arenas: Sakura Keep, Ember Forge, Frostmoon Abbey.
+- One player: sixteen computer opponents, from the Stable Hand, who has just learned the moves, up to
+  the Crown at full strength. Play either army.
+- A coach for one-player games, off, tips only, or full. A tip shows first which piece to move, then
+  where. The full coach also rings your pieces that are in danger, shows who is ahead, and stops you
+  before a move that throws the game away, pointing at the reply it fears. After the game it gives
+  your accuracy, counts slips, mistakes and blunders, and lets you replay the worst moments.
 - Move hints (on or off), an optional chess clock, three save slots plus an autosave,
   take-back, a classic bottom-versus-top board view for purists, and three fight settings
   (full, quick, off).
@@ -62,6 +69,14 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   geometric ones (glints, the king's hairline cut, sparks, rubble, focus lines, wide
   shockwaves) are drawn in code. Each is stored as light levels and coloured per army, so
   Sun and Moon share the same drawings.
+- The computer opponent is the game's own engine (`js/engine.js`): alpha-beta search with a
+  transposition table, null-move pruning and late-move reductions over the PeSTO piece-square
+  evaluation by Ronald Friederich. It runs in a background worker built from the page itself, so it
+  works when the game is opened as a file. The weaker opponents score every move a few plies deep
+  and pick by score with randomness (`js/ai.js`), which reads as human mistakes rather than dice.
+  The review uses Lichess's published winning-chance and accuracy formulas and its bands for an
+  inaccuracy, mistake and blunder. The tip in two steps, the warning before a bad move and the
+  replay of your mistakes follow what Lichess, Chess.com's coach and Lucas Chess do.
 - Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`), then
   levelled and packed by `tools/pack-audio.mjs`.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
@@ -69,7 +84,10 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
 
 ```bash
 node tests/perft.js                       # rules check: move counts against known totals
+node tests/engine.js                      # engine check: move counts, must-find moves, speed
+node tests/ladder.js 30                   # each opponent against the one above, prints the scores
 node tools/drive.mjs "index.html?game&manual" tests/soak.json   # plays a whole random game, fights included
+node tools/drive.mjs "index.html?game&ai=4" '[{"wait":1500},{"evalFile":"tests/solo.js"}]'   # a whole one-player game
 uv run tools/process_art.py               # rebuild sprites from art/raw
 uv run tools/draw_fx.py --preview         # rebuild effect sprites, write out/fx-preview.png
 node tools/pack-audio.mjs                 # rebuild assets/sfx.js

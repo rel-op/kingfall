@@ -57,7 +57,7 @@
     const q = BC.input.q; BC.input.q = [];
     for (const ev of q) { if (BC.ui.stack.length) BC.ui.input(ev); else if (BC.scene) BC.scene.input(ev); }
     if (next) { fade += dt * 4; if (fade >= 1) { BC.scene = next; next = null; } } else if (fade > 0 && !BC.fadeOut) fade = Math.max(0, fade - dt * 3);
-    if (BC.scene && !(BC.ui.stack.length && BC.scene.mode === 'play')) BC.scene.update(dt);
+    if (BC.scene && !(BC.ui.stack.length && (BC.scene.mode === 'play' || BC.scene.mode === 'think'))) BC.scene.update(dt);
   }
   function draw() {
     ctx.setTransform(2, 0, 0, 2, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
@@ -84,7 +84,9 @@
   const q = new URLSearchParams(location.search);
   BC.manual = q.has('manual');
   BC.loadAssets().then(() => {
-    if (q.has('game')) BC.go(new BC.Game({ env: +(q.get('env') || 0), clock: +(q.get('clock') || 0), fen: q.get('fen') }));
+    if (q.has('game')) BC.go(new BC.Game({ env: +(q.get('env') || 0), clock: +(q.get('clock') || 0), fen: q.get('fen'),
+      // for testing: ai=1..16 picks the opponent, you=moon swaps sides, coach=0..2
+      ai: q.has('ai') ? { level: +q.get('ai') || 3, side: q.get('you') === 'moon' ? 0 : 1, coach: q.has('coach') ? +q.get('coach') : 2 } : null }));
     else BC.go(new BC.Title());
     BC.ready = true;
     requestAnimationFrame(loop);
