@@ -41,7 +41,7 @@ Press A or click during a fight to fast-forward it.
   finishing routine: the pawn's dash-through thrust, the knight's double charge, the
   bishop's pillars of light, the rook golem's launcher and slam, the queen's blink-and-flurry,
   and the king's one-cut finish.
-- Three arenas: Sakura Keep, Ember Forge, Frostmoon Abbey.
+- Four arenas: Sakura Keep, Ember Forge, Frostmoon Abbey, Stormwall Keep. Each has two music themes, played in turn during a game.
 - One player: sixteen computer opponents, from the Stable Hand, who has just learned the moves, up to
   the Crown at full strength. Play either army.
 - A coach for one-player games, off, tips only, or full. A tip shows first which piece to move, then
@@ -92,8 +92,9 @@ The Moon army is the Sun army recoloured, the classic fighting-game palette swap
   with the file list and a version made from the files' contents; run it after changing game files.
   A changed `sw.js` is what tells a device there is a new version: it saves the whole new set, then
   `js/app.js` raises the restart notice.
-- Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`), then
-  levelled and packed by `tools/pack-audio.mjs`.
+- Sound effects and music were generated with ElevenLabs (`tools/gen-audio.mjs`). The effects are
+  levelled and packed by `tools/pack-audio.mjs`; `tools/trim-music.mjs` cuts the silence off the end
+  of each music track without re-encoding it. In a game the arena's two themes play in turn.
 - `tools/trailer.mjs` records the trailer by stepping the real game frame by frame in
   headless Chrome and mixing in each sound at the moment the game played it.
 
@@ -106,6 +107,8 @@ node tools/drive.mjs "index.html?game&ai=4" '[{"wait":1500},{"evalFile":"tests/s
 uv run tools/process_art.py               # rebuild sprites from art/raw
 uv run tools/draw_fx.py --preview         # rebuild effect sprites, write out/fx-preview.png
 node tools/pack-audio.mjs                 # rebuild assets/sfx.js
+node tools/trim-music.mjs                 # after generating music: cut trailing silence
+node tools/drive.mjs "serve:index.html" tests/arena.json   # the fourth arena, and one theme handing over to the other
 uv run tools/make_icons.py                # rebuild the app icons
 node tools/make-sw.mjs                    # rebuild sw.js (the offline file list) after changing game files
 MOBILE=844x390 node tools/drive.mjs "serve:index.html" tests/touch.json   # a phone-sized game played by touch

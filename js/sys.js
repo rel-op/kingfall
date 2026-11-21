@@ -35,14 +35,42 @@
     g.gain.value = vol === undefined ? 1 : vol;
     s.connect(g); g.connect(AU.gain); s.start();
   };
+  // key: one track, looped; or a list of tracks played in turn, starting on any one of them.
   AU.music = function (key) {
+    const list = [].concat(key), id = list.join('+'), url = (n) => 'assets/music/' + list[n] + '.mp3';
     AU.want = key;
-    AU.log.push({ t: BC.now || 0, music: key });
-    if (!AU.ctx || BC.manual || AU.cur === key) return;
-    if (AU.el) { const old = AU.el; let v = old.volume; const f = setInterval(() => { v -= 0.05; if (v <= 0) { clearInterval(f); old.pause(); } else old.volume = v; }, 40); }
-    AU.cur = key;
-    AU.el = new Audio('assets/music/' + key + '.mp3'); AU.el.loop = true; AU.el.volume = BC.opts.music * 0.7;
-    AU.el.play().catch(() => { AU.cur = null; });
+    AU.log.push({ t: BC.now || 0, music: id });
+    if (!AU.ctx || BC.manual || AU.cur === id) return;
+    if (AU.el) {
+      const old = AU.el; let v = old.volume; old.onended = old.ontimeupdate = null;
+      const f = setInterval(() => { v -= 0.05; if (v <= 0) { clearInterval(f); old.pause(); } else old.volume = v; }, 40);
+    }
+    AU.cur = id;
+    let i = (Math.random() * list.length) | 0;
+    const el = AU.el = new Audio(url(i));
+    el.loop = list.length === 1; el.volume = BC.opts.music * 0.7; AU.track = list[i];
+    if (list.length > 1) {
+      // have the next track ready, so the hand-over has no wait
+      const ready = () => { AU.next = new Audio(url((i + 1) % list.length)); AU.next.preload = 'auto'; };
+      // the same player carries on with the next track: a phone lets a player that has already played start again by itself
+      let busy = false;
+      const next = () => {
+        if (busy || AU.el !== el) return;
+        busy = true; i = (i + 1) % list.length; AU.track = list[i];
+        el.src = url(i); el.volume = BC.opts.music * 0.7; el.play().catch(() => {}); ready();
+      };
+      el.onplaying = () => { busy = false; };
+      el.onended = next;
+      // some tracks stop dead at the end, so the last second is faded; and a browser that stalls just short of
+      // the end never says the track ended, so the hand-over is made here too
+      el.ontimeupdate = () => {
+        const left = el.duration - el.currentTime;
+        if (busy || !(left >= 0)) return;
+        if (left < 0.3) next(); else el.volume = BC.opts.music * 0.7 * Math.min(1, left / 1.2);
+      };
+      ready();
+    }
+    el.play().catch(() => { AU.cur = null; });
   };
 
   // ---------- input ----------

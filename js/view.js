@@ -83,6 +83,12 @@
       frame: ['#c9d8ec', '#ffffff', '#7f93b8', '#48e8d8'], sky: '#9fe8ff', shade: 'rgba(4,8,40,0.12)',
       grade: ['rgba(120,170,255,0.12)', 'rgba(6,8,50,0.44)'], accent: '#b8fff6',
     },
+    {
+      key: 'storm', name: 'STORMWALL KEEP', tag: 'A GALE OFF THE SEA AT DUSK',
+      light: ['#9db7b8', '#84a0a3', '#c0d7d6', '#6c8a8f'], dark: ['#2f7480', '#245e6c', '#4496a0', '#1b4a56'],
+      frame: ['#3a4756', '#6a7d90', '#1a222c', '#ffc35a'], sky: '#7f9cab', shade: 'rgba(6,14,30,0.14)',
+      grade: ['rgba(130,180,200,0.10)', 'rgba(4,12,30,0.46)'], accent: '#8fe6e0',
+    },
   ];
 
   // Smooth value noise for marble.
@@ -186,14 +192,15 @@
       const k = this.env.key, P = this.p;
       if (k === 'sakura') P.add({ kind: 'petal', x: Math.random() * 1100 - 100, y: -10, vx: 22 + Math.random() * 30, vy: 26 + Math.random() * 26, life: 14, sway: 26, swf: 1.5 + Math.random() * 2, ph: Math.random() * 6, col: ['#ffd0e0', '#ff9ec0', '#ffffff', '#ffb7d0'][(Math.random() * 4) | 0], z: Math.random() });
       else if (k === 'ember') P.add({ kind: 'sq', x: Math.random() * 960, y: 550, vx: (Math.random() - 0.5) * 20, vy: -30 - Math.random() * 60, life: 5 + Math.random() * 4, sway: 22, swf: 2 + Math.random() * 3, ph: Math.random() * 6, cols: ['#fff3a0', '#ffb347', '#ff6a2a', '#a8232e', '#521a2a'], s: Math.random() < 0.3 ? 2 : 1, z: Math.random(), glow: true });
+      else if (k === 'storm') P.add({ kind: 'rain', x: Math.random() * 1250 - 40, y: -20, vx: -170 - Math.random() * 40, vy: 470 + Math.random() * 160, life: 1.5, col: Math.random() < 0.5 ? '#d7ecf4' : '#9fc6d8', z: Math.random() * 0.8 });
       else P.add({ kind: 'sq', x: Math.random() * 1100 - 100, y: -10, vx: 8 + Math.random() * 16, vy: 30 + Math.random() * 40, life: 14, sway: 14, swf: 1 + Math.random() * 2, ph: Math.random() * 6, col: Math.random() < 0.5 ? '#ffffff' : '#cfe9ff', s: Math.random() < 0.25 ? 2 : 1, z: Math.random() });
     }
     update(dt) {
-      this.t += dt; this.acc += dt * (this.env.key === 'sakura' ? 7 : this.env.key === 'ember' ? 9 : 14);
+      this.t += dt; this.acc += dt * { sakura: 7, ember: 9, frost: 14, storm: 100 }[this.env.key];
       while (this.acc > 1) { this.acc--; this.spawn(); }
       this.p.update(dt);
     }
-    // Soft light drawn over the scene: sun shafts, forge glow, or aurora.
+    // Soft light drawn over the scene: sun shafts, forge glow, sea spray and far lightning, or aurora.
     light(ctx) {
       const t = this.t, k = this.env.key;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -210,6 +217,20 @@
           const g = ctx.createRadialGradient(x, y, 0, x, y, r);
           g.addColorStop(0, `rgba(255,120,30,${a})`); g.addColorStop(1, 'rgba(255,60,0,0)');
           ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+        }
+      } else if (k === 'storm') {
+        // spray thrown up where the waves break over the walls, left and right in turn
+        for (const [x, ph] of [[-30, 0], [990, 2.6]]) {
+          const a = 0.03 + 0.09 * Math.max(0, Math.sin(t * 0.8 + ph)) ** 3, g = ctx.createRadialGradient(x, 300, 0, x, 300, 300);
+          g.addColorStop(0, `rgba(210,240,245,${a})`); g.addColorStop(1, 'rgba(210,240,245,0)');
+          ctx.fillStyle = g; ctx.fillRect(x - 300, 0, 600, 600);
+        }
+        // far lightning: a faint double flicker now and then, never a hard flash
+        const c = t % 12.7, a = c < 0.08 ? 0.08 : c > 0.15 && c < 0.45 ? 0.06 * (1 - (c - 0.15) / 0.3) : 0;
+        if (a > 0) {
+          const g = ctx.createLinearGradient(0, 0, 0, 330);
+          g.addColorStop(0, `rgba(190,225,255,${a * 2})`); g.addColorStop(1, 'rgba(190,225,255,0)');
+          ctx.fillStyle = g; ctx.fillRect(0, 0, 960, 330);
         }
       } else {
         for (let i = 0; i < 3; i++) {
@@ -228,7 +249,8 @@
     // Flickering firelight painted onto the backdrop's own lanterns and braziers (backdrop pixel positions).
     fires(ctx) {
       const L = { sakura: [[118, 184, 26], [280, 141, 18], [428, 141, 18], [629, 141, 18], [763, 141, 18], [913, 376, 26]],
-        ember: [[278, 96, 46], [689, 96, 46], [100, 312, 54], [873, 312, 54], [95, 150, 60], [845, 150, 40]] }[this.env.key];
+        ember: [[278, 96, 46], [689, 96, 46], [100, 312, 54], [873, 312, 54], [95, 150, 60], [845, 150, 40]],
+        storm: [[270, 138, 18], [545, 138, 18], [138, 166, 16], [80, 212, 22], [51, 405, 28], [899, 227, 22], [759, 144, 14], [695, 29, 44]] }[this.env.key];
       if (!L) return;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       L.forEach(([x, y, r], i) => {
@@ -245,7 +267,12 @@
         const k = q.age / q.life;
         ctx.fillStyle = q.cols ? q.cols[Math.min(q.cols.length - 1, (k * q.cols.length) | 0)] : q.col;
         const s = (q.s || 1) * (front ? 2 : 1);
-        if (q.kind === 'petal') {
+        if (q.kind === 'rain') {
+          // a thin streak leaning the way the wind blows
+          ctx.globalAlpha = front ? 0.5 : 0.32;
+          for (let j = 0; j < 3; j++) ctx.fillRect(q.x - j, q.y + j * 3 * s, 1, 3 * s);
+          ctx.globalAlpha = 1;
+        } else if (q.kind === 'petal') {
           const f = ((q.age * 6 + q.ph) | 0) & 3;
           ctx.fillRect(q.x, q.y, f === 2 ? s : s * 2, f === 0 ? s : s * (f === 2 ? 2 : 1));
         } else ctx.fillRect(q.x, q.y, s, s);

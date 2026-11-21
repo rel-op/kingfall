@@ -28,7 +28,13 @@ if (target.startsWith('serve:')) {
       let body = readFileSync(file);
       const e = edits[file.slice(root.length + 1)];
       if (e) body = Buffer.from(body.toString().replace(e[0], () => e[1]));
-      res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' }); res.end(body);
+      const type = TYPES[extname(file)] || 'application/octet-stream', part = /bytes=(\d+)-(\d*)/.exec(req.headers.range || '');
+      if (part) {
+        // a browser asks for music in slices, and needs them to jump about inside a track
+        const from = +part[1], to = part[2] ? Math.min(+part[2], body.length - 1) : body.length - 1;
+        res.writeHead(206, { 'Content-Type': type, 'Cache-Control': 'no-cache', 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${from}-${to}/${body.length}` });
+        res.end(body.subarray(from, to + 1));
+      } else { res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache', 'Accept-Ranges': 'bytes' }); res.end(body); }
     } catch (e) { res.writeHead(404); res.end('not found'); }
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));

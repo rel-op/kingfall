@@ -44,3 +44,6 @@ ok fx_pillar 49s
 ok fx_puff 40s
 ok fx_land 43s
 done
+ok bg_storm_board 73s
+ok bg_storm_battle 68s
+done

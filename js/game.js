@@ -23,7 +23,7 @@
       this.cursor = [V.orient === 'side' ? 52 : 52, V.orient === 'side' ? 12 : 12];
       this.mode = this.result ? 'over' : 'play';
       this.build(); this.refresh();
-      BC.audio.music(this.env.key);
+      BC.audio.music([this.env.key, this.env.key + '2']);   // each arena has two themes, played in turn
       if (this.mode === 'play') this.turnStart();
     }
     snapshot() {

@@ -368,7 +368,7 @@
         { label: 'OPPONENT', value: () => P.level + ' ' + L[P.level - 1].name, adj: (d) => { P.level = BC.clamp(P.level + d, 1, L.length); } },
         { label: 'YOU PLAY', value: () => SIDES[P.side], adj: (d) => { P.side = (P.side + d + 3) % 3; } },
         { label: 'COACH', value: () => COACH[P.coach], adj: (d) => { P.coach = (P.coach + d + 3) % 3; } },
-        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => { this.envI = (this.envI + d + 3) % 3; this.amb = new BC.Ambient(BC.ENVS[this.envI]); } },
+        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => { this.envI = (this.envI + d + BC.ENVS.length) % BC.ENVS.length; this.amb = new BC.Ambient(BC.ENVS[this.envI]); } },
         { label: 'CLOCK', value: () => (CLOCKS[P.clockI] ? CLOCKS[P.clockI] + ' MIN EACH' : 'NO CLOCK'), adj: (d) => { P.clockI = (P.clockI + d + CLOCKS.length) % CLOCKS.length; } },
         { label: 'BEGIN', act: () => {
           BC.save.put('solo', P); UI.clear();
@@ -380,7 +380,7 @@
     }
     setup() {
       UI.open({ title: 'NEW GAME', w: 470, y: 300, shade: false, cover: true, items: [
-        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => { this.envI = (this.envI + d + 3) % 3; this.amb = new BC.Ambient(BC.ENVS[this.envI]); } },
+        { label: 'ARENA', value: () => BC.ENVS[this.envI].name, adj: (d) => { this.envI = (this.envI + d + BC.ENVS.length) % BC.ENVS.length; this.amb = new BC.Ambient(BC.ENVS[this.envI]); } },
         { label: 'CLOCK', value: () => (CLOCKS[this.clockI] ? CLOCKS[this.clockI] + ' MIN EACH' : 'NO CLOCK'), adj: (d) => { this.clockI = (this.clockI + d + CLOCKS.length) % CLOCKS.length; } },
         { label: 'MOVE HINTS', value: () => onOff(BC.opts.hints), adj: () => { BC.opts.hints = !BC.opts.hints; BC.saveOpts(); } },
         { label: 'BEGIN', act: () => { UI.clear(); BC.go(new BC.Game({ env: this.envI, clock: CLOCKS[this.clockI] })); } },
