@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Kingfall sprite preview</title>
+<style>body{margin:0;background:#2a2238}canvas{display:block;width:1280px;height:720px}</style>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script src="../assets/atlas.js"></script>
+<script src="../js/gfx.js"></script>
+<script src="../js/view.js"></script>
+<script src="../js/fx.js"></script>
+<script>
+// Every frame of one piece, feet on a shared line, with an overlay of all frames to show jitter.
+const q = new URLSearchParams(location.search), t = q.get('t') || 'k', team = +(q.get('team') || 0);
+const ctx = document.getElementById('c').getContext('2d');
+BC.assets.img = {};
+const names = BC.PIECE, key = BC.TEAMS[team].key + '_' + names[t];
+const im = new Image();
+im.onload = () => {
+  BC.assets.img[key] = im;
+  ctx.setTransform(2, 0, 0, 2, 0, 0);
+  ctx.fillStyle = team ? '#c9b9a0' : '#3a4a6a'; ctx.fillRect(0, 0, 960, 540);
+  const anims = ['morph', 'idle', 'hit', 'attack', 'move'];
+  let y = 124;
+  anims.forEach((a, row) => {
+    const n = BC.animLen(t, a), wide = a === 'idle' || a === 'hit';
+    const yy = wide ? (a === 'idle' ? 248 : 248) : y;
+    for (let i = 0; i < n; i++) {
+      const x = wide ? (a === 'idle' ? 60 : 500) + i * 100 : 60 + i * 100;
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(x - 40, yy, 80, 1); ctx.fillRect(x, yy - 4, 1, 8);
+      BC.drawSprite(ctx, t, team, a, i, x, yy, {});
+    }
+    for (let i = 0; i < n; i++) BC.drawSprite(ctx, t, team, a, i, 900, yy, { alpha: 0.3 });
+    BC.text(ctx, a, wide && a === 'hit' ? 450 : 8, yy - 110, { c: '#fff', o: '#000' });
+    if (!wide || a === 'hit') y += 124;
+  });
+  window.done = true;
+};
+im.src = '../assets/sprites/' + key + '.png';
+</script>
